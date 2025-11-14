@@ -1,0 +1,94 @@
+const LandingContent = require("../Models/LandingContent");
+
+exports.createLandingContent = async (req, res) => {
+  try {
+    const { heading1, heading2, description } = req.body;
+ 
+    const images = req.files.map(file => `/Uploads/landing/${file.filename}`);
+ 
+    const content = new LandingContent({
+      heading1,
+      heading2,
+      description,
+      images,
+    });
+ 
+    await content.save();
+ 
+    res.status(201).json({ message: "Landing content created", content });
+  } catch (error) {
+    res.status(500).json({ message: "Server Error", error });
+  }
+};
+ 
+exports.getLandingContent = async (req, res) => {
+  try {
+    const content = await LandingContent.find().sort({ createdAt: -1 }).lean();
+ 
+    res.status(200).json(content);
+  } catch (error) {
+    res.status(500).json({ message: "Server Error", error });
+  }
+};
+ 
+
+// ✅ GET Landing Content by ID
+exports.getLandingContentById = async (req, res) => {
+  try {
+    const content = await LandingContent.findById(req.params.id).lean();
+    if (!content) {
+      return res.status(404).json({ message: "Landing content not found" });
+    }
+    res.status(200).json(content);
+  } catch (error) {
+    res.status(500).json({ message: "Server Error", error });
+  }
+};
+
+// ✅ UPDATE Landing Content
+exports.updateLandingContent = async (req, res) => {
+  try {
+    const { heading1, heading2, description } = req.body;
+    let updatedData = { heading1, heading2, description };
+
+    if (req.files && req.files.length > 0) {
+      const images = req.files.map(
+        (file) => `/Uploads/landing/${file.filename}`
+      );
+      updatedData.images = images;
+    }
+
+    const updatedContent = await LandingContent.findByIdAndUpdate(
+      req.params.id,
+      updatedData,
+      { new: true }
+    );
+
+    if (!updatedContent) {
+      return res.status(404).json({ message: "Landing content not found" });
+    }
+
+    res
+      .status(200)
+      .json({ message: "Landing content updated", updatedContent });
+  } catch (error) {
+    res.status(500).json({ message: "Server Error", error });
+  }
+};
+
+// ✅ DELETE Landing Content
+exports.deleteLandingContent = async (req, res) => {
+  try {
+    const deletedContent = await LandingContent.findByIdAndDelete(
+      req.params.id
+    );
+
+    if (!deletedContent) {
+      return res.status(404).json({ message: "Landing content not found" });
+    }
+
+    res.status(200).json({ message: "Landing content deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Server Error", error });
+  }
+};
