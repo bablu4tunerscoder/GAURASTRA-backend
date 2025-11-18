@@ -1,5 +1,5 @@
 const blogsModel = require("../Models/blogModel");
-const { processImage } = require("../Middlewares/productuploadMiddleware");
+const { processMedia } = require("../Middlewares/productuploadMiddleware");
 const path = require("path");
  
 // Function to format the slug correctly
@@ -54,7 +54,7 @@ const createBlogs = async (req, res) => {
     // **Convert Thumbnail to WebP**
     let webpThumbnailPath;
     try {
-      webpThumbnailPath = await processImage(thumbnailFile.path);
+      webpThumbnailPath = await processMedia(thumbnailFile.path);
     } catch (error) {
       console.error("Error processing image:", error);
       return res

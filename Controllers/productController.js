@@ -662,8 +662,8 @@ const deleteProductsByID = async (req, res) => {
 const filterProductDetails = async (req, res) => {
   try {
     const {
-      category_id,
-      Subcategory_id,
+      category_name,
+      Subcategory_name,
       min_price,
       max_price,
       sort,
@@ -673,10 +673,40 @@ const filterProductDetails = async (req, res) => {
 
     let filter = {};
 
-    if (category_id) filter.category_id = category_id;
-    if (Subcategory_id) filter.Subcategory_id = Subcategory_id;
+    // -------------------------------
+    // ✅ CATEGORY NAME → category_id
+    // -------------------------------
+    if (category_name) {
+      const category = await Category.findOne({ category_name }).select("category_id");
+      if (category) filter.category_id = category.category_id;
+    }
 
-    // Fetch products with base filter
+    // ------------------------------------
+    // ✅ SUBCATEGORY NAME → Subcategory_id
+    // ------------------------------------
+    if (Subcategory_name) {
+      const subcategory = await Subcategory.findOne({ Subcategory_name }).select("Subcategory_id");
+      if (subcategory) filter.Subcategory_id = subcategory.Subcategory_id;
+    }
+
+    // ------------------------------------
+    // ✅ SEARCH FILTER (Product Name, Brand, Description, SEO, Attributes)
+    // ------------------------------------
+    if (search) {
+      filter.$or = [
+        { product_name: { $regex: search, $options: "i" } },
+        { brand: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
+        { "seo.metaTitle": { $regex: search, $options: "i" } },
+        { "seo.metaDescription": { $regex: search, $options: "i" } },
+        { "seo.keywords": { $regex: search, $options: "i" } },
+        { attributes: { $regex: search, $options: "i" } } // dynamic attributes search
+      ];
+    }
+
+    // -------------------------------
+    // ✅ GET PRODUCTS
+    // -------------------------------
     const products = await Product.find(filter);
 
     const filteredProducts = await Promise.all(
@@ -702,10 +732,14 @@ const filterProductDetails = async (req, res) => {
           }),
         ]);
 
-        // ✅ On Sale Filter: Only return products with valid discounts if on_sale is true
+        // -------------------------------
+        // ✅ ON SALE FILTER
+        // -------------------------------
         if (on_sale && !discount) return null;
 
-        // ✅ Filter by price range
+        // -------------------------------
+        // ✅ PRICE RANGE FILTER
+        // -------------------------------
         if (min_price || max_price) {
           const inPriceRange = pricingRecords.some((pricing) => {
             return pricing.price_detail.some((price) => {
@@ -722,8 +756,9 @@ const filterProductDetails = async (req, res) => {
           if (!inPriceRange) return null;
         }
 
-        // ✅ Extract latest pricing
-        // ✅ Extract latest pricing (only active price)
+        // ---------------------------------------
+        // ✅ Extract latest active pricing
+        // ---------------------------------------
         const activePricing = pricingRecords.find((pricing) =>
           pricing.price_detail.some((price) => price.is_active === true)
         );
@@ -733,6 +768,7 @@ const filterProductDetails = async (req, res) => {
           const activePriceDetail = activePricing.price_detail.find(
             (price) => price.is_active === true
           );
+
           latestPricing = {
             _id: activePricing._id,
             price_id: activePricing.price_id,
@@ -744,18 +780,17 @@ const filterProductDetails = async (req, res) => {
               discount_percent: activePriceDetail.discount_percent,
               discounted_price:
                 activePriceDetail.original_price -
-                (activePriceDetail.original_price *
-                  activePriceDetail.discount_percent) /
-                  100,
+                (activePriceDetail.original_price * activePriceDetail.discount_percent) / 100,
               is_active: activePriceDetail.is_active,
               created_at: activePriceDetail.created_at,
               _id: activePriceDetail._id,
             },
-            __v: activePricing.__v,
-            createdAt: activePricing.createdAt,
-            updatedAt: activePricing.updatedAt,
           };
         }
+
+        // ---------------------------------------
+        // RETURN PRODUCT DETAILS
+        // ---------------------------------------
         return {
           product_id: product.product_id,
           productUniqueId: product.productUniqueId,
@@ -774,10 +809,8 @@ const filterProductDetails = async (req, res) => {
           category: category || null,
           subcategory: subcategory || null,
 
-          // ✅ Latest Pricing Details
           latest_pricing: latestPricing,
 
-          // ✅ Pricing History
           pricing_history: pricingRecords.map((pricing) => ({
             price_id: pricing.price_id,
             currency: pricing.currency,
@@ -793,7 +826,6 @@ const filterProductDetails = async (req, res) => {
             })),
           })),
 
-          // ✅ Stock Details
           stock_details: stockRecords.map((stock) => ({
             stock_id: stock.stock_id,
             size: stock.size,
@@ -802,7 +834,6 @@ const filterProductDetails = async (req, res) => {
             last_updated: stock.last_updated,
           })),
 
-          // ✅ Discount Details
           discount: discount
             ? {
                 discount_id: discount.discount_id,
@@ -819,36 +850,37 @@ const filterProductDetails = async (req, res) => {
       })
     );
 
-    let finalProducts = filteredProducts.filter((product) => product !== null);
+    let finalProducts = filteredProducts.filter((p) => p !== null);
 
-    // ✅ Sorting
+    // -------------------------------
+    // ✅ SORTING
+    // -------------------------------
     if (sort) {
       switch (sort) {
         case "price_low_to_high":
           finalProducts.sort(
             (a, b) =>
-              (a.latest_pricing?.price_history[0]?.discounted_price ||
-                Infinity) -
-              (b.latest_pricing?.price_history[0]?.discounted_price || Infinity)
+              (a.latest_pricing?.price_detail.discounted_price || Infinity) -
+              (b.latest_pricing?.price_detail.discounted_price || Infinity)
           );
           break;
+
         case "price_high_to_low":
           finalProducts.sort(
             (a, b) =>
-              (b.latest_pricing?.price_history[0]?.discounted_price || 0) -
-              (a.latest_pricing?.price_history[0]?.discounted_price || 0)
+              (b.latest_pricing?.price_detail.discounted_price || 0) -
+              (a.latest_pricing?.price_detail.discounted_price || 0)
           );
           break;
+
         case "A_to_Z":
-          finalProducts.sort((a, b) =>
-            a.product_name.localeCompare(b.product_name)
-          );
+          finalProducts.sort((a, b) => a.product_name.localeCompare(b.product_name));
           break;
+
         case "Z_to_A":
-          finalProducts.sort((a, b) =>
-            b.product_name.localeCompare(a.product_name)
-          );
+          finalProducts.sort((a, b) => b.product_name.localeCompare(a.product_name));
           break;
+
         case "new_arrivals":
           finalProducts.sort(
             (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
@@ -858,6 +890,7 @@ const filterProductDetails = async (req, res) => {
     }
 
     res.status(200).json({ status: "1", success: true, data: finalProducts });
+
   } catch (error) {
     res.status(500).json({
       status: "0",
@@ -867,6 +900,7 @@ const filterProductDetails = async (req, res) => {
     });
   }
 };
+
 
 // advanced filter side bar category and sub category
 const sideBarsProduct = async (req, res) => {

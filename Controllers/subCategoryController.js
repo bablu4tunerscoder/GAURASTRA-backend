@@ -189,6 +189,9 @@ const deleteSubCategory = async (req, res) => {
       Subcategory_id: id,
     });
 
+    console.log('subcategory',subcategory)
+
+
     if (!subcategory) {
       return res
         .status(404)
