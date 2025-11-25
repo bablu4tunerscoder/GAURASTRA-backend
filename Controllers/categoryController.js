@@ -1,10 +1,17 @@
 const Category = require("../Models/categoryModel");
 const { v4: uuidv4 } = require("uuid");
+const {cleanString} = require('../Utils/helpers')
 
 // ✅ Create Category
 const createCategory = async (req, res) => {
   try {
-    const { category_name, category_description } = req.body;
+    let { category_name, category_description } = req.body;
+
+    // Convert to lowercase
+
+     let cleanCate = cleanString(category_name);
+
+    category_name = cleanCate
 
     // Check if category already exists
     const existingCategory = await Category.findOne({ category_name });
@@ -32,6 +39,7 @@ const createCategory = async (req, res) => {
     res.status(500).json({ status: "0", message: error.message });
   }
 };
+
 
 // ✅ Get All Categories
 const getAllCategories = async (req, res) => {
@@ -73,7 +81,14 @@ const getCategoryById = async (req, res) => {
 const updateCategory = async (req, res) => {
   try {
     const { id } = req.params;
-    const { category_name, category_description, status } = req.body;
+    let { category_name, category_description, status } = req.body;
+
+    // Convert to lowercase if provided
+    if (category_name) {
+       let cleanCate = cleanString(category_name);
+      category_name = cleanCate
+    }
+
     const category = await Category.findOneAndUpdate(
       { category_id: id },
       { category_name, category_description, status },
@@ -95,6 +110,7 @@ const updateCategory = async (req, res) => {
     res.status(500).json({ status: "0", message: error.message });
   }
 };
+
 
 // ✅ Delete Category
 const deleteCategory = async (req, res) => {

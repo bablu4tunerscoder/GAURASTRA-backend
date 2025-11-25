@@ -1,13 +1,25 @@
 const SubCategory = require("../Models/subCategoryModel");
 const Category = require("../Models/categoryModel");
 const { v4: uuidv4 } = require("uuid");
+const {cleanString} = require('../Utils/helpers')
 
 // ✅ Create SubCategory
 // ✅ Create SubCategory with conditional gender for Ethnic Wear
 const createSubCategory = async (req, res) => {
   try {
-    const { category_id, Subcategory_name, Subcategory_description, gender } =
-      req.body;
+    let {
+      category_id,
+      Subcategory_name,
+      Subcategory_description,
+      gender,
+    } = req.body;
+
+    // Convert subcategory name to lowercase
+    if (Subcategory_name) {
+      let cleanSubCate = cleanString(Subcategory_name);
+      
+      Subcategory_name = cleanSubCate
+    }
 
     // Check if category exists
     const categoryExists = await Category.findOne({ category_id });
@@ -17,7 +29,7 @@ const createSubCategory = async (req, res) => {
         .json({ status: "0", message: "Category not found" });
     }
 
-    // ✅ If category is Ethnic Wear → gender is required
+    // Gender required if category is Ethnic Wear
     if (
       categoryExists.category_name.toLowerCase() === "ethnic wear" &&
       !gender
@@ -28,11 +40,11 @@ const createSubCategory = async (req, res) => {
       });
     }
 
-    // Check if subcategory with same name & gender already exists
+    // Check if subcategory already exists
     const existingSubCategory = await SubCategory.findOne({
       Subcategory_name,
       category_id,
-      ...(gender && { gender }), // conditionally add gender in query
+      ...(gender && { gender }),
     });
 
     if (existingSubCategory) {
@@ -48,7 +60,7 @@ const createSubCategory = async (req, res) => {
       category_id,
       Subcategory_name,
       Subcategory_description,
-      ...(gender && { gender }), // only include if exists
+      ...(gender && { gender }),
     });
 
     await newSubCategory.save();
@@ -62,6 +74,7 @@ const createSubCategory = async (req, res) => {
     res.status(500).json({ status: "0", message: error.message });
   }
 };
+
 
 // ✅ Get All SubCategories with Category Data
 const getAllSubCategories = async (req, res) => {
@@ -127,13 +140,19 @@ const getSubCategoryById = async (req, res) => {
 const updateSubCategory = async (req, res) => {
   try {
     const { id } = req.params;
-    const {
+    let {
       category_id,
       Subcategory_name,
       Subcategory_description,
       status,
-      gender, // ✅ Accept gender optionally
+      gender, // optional
     } = req.body;
+
+    // Convert Subcategory_name to lowercase if provided
+    if (Subcategory_name) {
+       let cleanSubCate = cleanString(Subcategory_name);
+      Subcategory_name = cleanSubCate
+    }
 
     // Fetch category data
     const category = await Category.findOne({ category_id }).lean();
@@ -143,7 +162,7 @@ const updateSubCategory = async (req, res) => {
         .json({ status: "0", message: "Category not found" });
     }
 
-    // ✅ Prepare update object
+    // Prepare update object
     const updateFields = {
       category_id,
       Subcategory_name,
@@ -151,8 +170,8 @@ const updateSubCategory = async (req, res) => {
       status,
     };
 
-    // ✅ Only add gender if category is 'Ethnic Wear'
-    if (category.category_name === "Ethnic Wear") {
+    // Add gender only if category is 'Ethnic Wear'
+    if (category.category_name.toLowerCase() === "ethnic wear") {
       updateFields.gender = gender || "";
     }
 
@@ -179,6 +198,7 @@ const updateSubCategory = async (req, res) => {
     res.status(500).json({ status: "0", message: error.message });
   }
 };
+
 
 // ✅ Delete SubCategory
 const deleteSubCategory = async (req, res) => {

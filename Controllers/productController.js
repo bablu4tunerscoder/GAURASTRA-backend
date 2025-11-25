@@ -8,6 +8,8 @@ const slugify = require("slugify");
 const Category = require("../Models/categoryModel");
 const Subcategory = require("../Models/subCategoryModel");
 const QRCode = require("qrcode"); // ✅ ADD THIS
+const {cleanString} = require('../Utils/helpers')
+
 
 const generateProductUniqueId = async (
   Subcategory_id,
@@ -241,7 +243,7 @@ const getAllProductsWithDetails = async (req, res) => {
                 activePriceDetail.original_price -
                 (activePriceDetail.original_price *
                   activePriceDetail.discount_percent) /
-                  100,
+                100,
               is_active: activePriceDetail.is_active,
               created_at: activePriceDetail.created_at,
               _id: activePriceDetail._id,
@@ -269,24 +271,24 @@ const getAllProductsWithDetails = async (req, res) => {
           updatedAt: product.updatedAt,
           category: category
             ? {
-                category_id: category.category_id,
-                category_name: category.category_name,
-                category_description: category.category_description,
-                category_status: category.status,
-                createdAt: category.createdAt,
-                updatedAt: category.updatedAt,
-              }
+              category_id: category.category_id,
+              category_name: category.category_name,
+              category_description: category.category_description,
+              category_status: category.status,
+              createdAt: category.createdAt,
+              updatedAt: category.updatedAt,
+            }
             : null,
 
           subcategory: subcategory
             ? {
-                Subcategory_id: subcategory.Subcategory_id,
-                Subcategory_name: subcategory.Subcategory_name,
-                Subcategory_description: subcategory.Subcategory_description,
-                Subcategory_status: subcategory.status,
-                createdAt: subcategory.createdAt,
-                updatedAt: subcategory.updatedAt,
-              }
+              Subcategory_id: subcategory.Subcategory_id,
+              Subcategory_name: subcategory.Subcategory_name,
+              Subcategory_description: subcategory.Subcategory_description,
+              Subcategory_status: subcategory.status,
+              createdAt: subcategory.createdAt,
+              updatedAt: subcategory.updatedAt,
+            }
             : null,
 
           // ✅ Updated Latest Pricing
@@ -383,7 +385,7 @@ const getOneProductWithDetails = async (req, res) => {
             activePriceDetail.original_price -
             (activePriceDetail.original_price *
               activePriceDetail.discount_percent) /
-              100,
+            100,
           is_active: activePriceDetail.is_active,
           created_at: activePriceDetail.created_at,
           _id: activePriceDetail._id,
@@ -663,7 +665,7 @@ const filterProductDetails = async (req, res) => {
   try {
     const {
       category_name,
-      Subcategory_name,
+      subcategory_name,
       min_price,
       max_price,
       sort,
@@ -671,23 +673,41 @@ const filterProductDetails = async (req, res) => {
       on_sale,
     } = req.body;
 
+
+    // console.log('apii calll...')
+
     let filter = {};
+
 
     // -------------------------------
     // ✅ CATEGORY NAME → category_id
     // -------------------------------
+    
     if (category_name) {
-      const category = await Category.findOne({ category_name }).select("category_id");
+      let cleanCate = cleanString(category_name);
+
+      // console.log(cleanCate)
+      
+      const category = await Category.findOne({
+        category_name: cleanCate
+      }).select("category_id");
       if (category) filter.category_id = category.category_id;
     }
 
     // ------------------------------------
     // ✅ SUBCATEGORY NAME → Subcategory_id
     // ------------------------------------
-    if (Subcategory_name) {
-      const subcategory = await Subcategory.findOne({ Subcategory_name }).select("Subcategory_id");
+
+   
+
+    if (subcategory_name) {
+      let cleanSubCate = cleanString(subcategory_name);
+      const subcategory = await Subcategory.findOne({
+        Subcategory_name: cleanSubCate
+      }).select("Subcategory_id");
       if (subcategory) filter.Subcategory_id = subcategory.Subcategory_id;
     }
+
 
     // ------------------------------------
     // ✅ SEARCH FILTER (Product Name, Brand, Description, SEO, Attributes)
@@ -707,6 +727,9 @@ const filterProductDetails = async (req, res) => {
     // -------------------------------
     // ✅ GET PRODUCTS
     // -------------------------------
+
+
+    // console.log('filter',filter)
     const products = await Product.find(filter);
 
     const filteredProducts = await Promise.all(
@@ -836,13 +859,13 @@ const filterProductDetails = async (req, res) => {
 
           discount: discount
             ? {
-                discount_id: discount.discount_id,
-                discount_type: discount.discount_type,
-                value: discount.value,
-                start_date: discount.start_date,
-                end_date: discount.end_date,
-                is_active: discount.is_active,
-              }
+              discount_id: discount.discount_id,
+              discount_type: discount.discount_type,
+              value: discount.value,
+              start_date: discount.start_date,
+              end_date: discount.end_date,
+              is_active: discount.is_active,
+            }
             : null,
 
           images: images,
@@ -1082,7 +1105,7 @@ const getDataWithCanonicalurls = async (req, res) => {
             activePriceDetail.original_price -
             (activePriceDetail.original_price *
               activePriceDetail.discount_percent) /
-              100,
+            100,
           is_active: activePriceDetail.is_active,
           created_at: activePriceDetail.created_at,
           _id: activePriceDetail._id,
@@ -1250,21 +1273,21 @@ const getProductSuggestions = async (req, res) => {
       // Transform pricing data to match desired structure
       const pricing_history = productPricing.price_id
         ? [
-            {
-              price_id: productPricing.price_id,
-              currency: productPricing.currency || "INR",
-              sku: productPricing.sku,
-              price_detail:
-                productPricing.price_detail?.map((detail) => ({
-                  original_price: detail.original_price,
-                  discount_percent: detail.discount_percent,
-                  discounted_price: detail.discounted_price,
-                  is_active: detail.is_active,
-                  created_at: detail.created_at,
-                  _id: detail._id,
-                })) || [],
-            },
-          ]
+          {
+            price_id: productPricing.price_id,
+            currency: productPricing.currency || "INR",
+            sku: productPricing.sku,
+            price_detail:
+              productPricing.price_detail?.map((detail) => ({
+                original_price: detail.original_price,
+                discount_percent: detail.discount_percent,
+                discounted_price: detail.discounted_price,
+                is_active: detail.is_active,
+                created_at: detail.created_at,
+                _id: detail._id,
+              })) || [],
+          },
+        ]
         : [];
 
       // Transform stock data to match desired structure
@@ -1375,7 +1398,7 @@ const getDataWithUniqueId = async (req, res) => {
             activePriceDetail.original_price -
             (activePriceDetail.original_price *
               activePriceDetail.discount_percent) /
-              100,
+            100,
           is_active: activePriceDetail.is_active,
           created_at: activePriceDetail.created_at,
           _id: activePriceDetail._id,

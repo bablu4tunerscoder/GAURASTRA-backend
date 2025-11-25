@@ -19,6 +19,9 @@ const couponRouter = require("./Routes/couponRoutes");
 const bannerRoutes = require("./Routes/bannerRoutes");
 const leadRoutes = require('./Routes/lead.routes');
 
+
+const RootRoutesOffline = require('./GaurastraOffline/routes/root');
+
 dotenv.config();
 connectDB();
 
@@ -105,9 +108,13 @@ app.use("/api/banner", bannerRoutes);
 app.use('/api/leads', leadRoutes);
 
 
+app.use("/api/offline/", RootRoutesOffline);
+
+
 // Main test route
 app.get("/", (req, res) => res.send("API Running..."));
 
 // Start server
 const PORT = process.env.PORT || 9090;
-app.listen(PORT,"0.0.0.0", () => console.log(`Server running on port ${PORT}`));
+// app.listen(PORT,"0.0.0.0", () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
