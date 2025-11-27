@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-const billingcontrollers = require("../controllers/billingcontrollers");
+const billingcontrollers = require("../controllers/billingControllers");
 
   
 router.post("/create", billingcontrollers.createBilling);

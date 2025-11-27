@@ -18,6 +18,7 @@ const facebookEventsRoutes = require("./Routes/facebookEventsRoute");
 const couponRouter = require("./Routes/couponRoutes");
 const bannerRoutes = require("./Routes/bannerRoutes");
 const leadRoutes = require('./Routes/lead.routes');
+const ratingRoutes = require('./Routes/ratingRoutes');
 
 
 const RootRoutesOffline = require('./GaurastraOffline/routes/root');
@@ -106,8 +107,7 @@ app.use("/api/facebook", facebookEventsRoutes);
 app.use("/api/coupons", couponRouter);
 app.use("/api/banner", bannerRoutes);
 app.use('/api/leads', leadRoutes);
-
-
+app.use('/api/rating', ratingRoutes);
 app.use("/api/offline/", RootRoutesOffline);
 
 

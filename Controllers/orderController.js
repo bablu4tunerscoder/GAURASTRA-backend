@@ -3,6 +3,7 @@ const Payment = require("../Models/paymentModel");
 const User = require("../Models/userModel");
 const ProductImg = require("../Models/ProductImgModel");
 const Lead = require("../Models/lead.model");
+const Product = require("../Models/ProductModel");
 
 // Create New Order
 exports.createOrder = async (req, res) => {
@@ -215,98 +216,90 @@ exports.getDetailswithUser = async (req, res) => {
   try {
     const { user_id } = req.params;
 
-    if (!user_id || typeof user_id !== "string") {
+    if (!user_id) {
       return res.status(400).json({
         success: false,
-        message: "Invalid or missing user_id in request parameters",
+        message: "Missing user_id parameter",
       });
     }
 
-    // Step 1: Find all orders of the user
+    // 1️⃣ Get all orders
     const orders = await Order.find({ "user.user_id": user_id }).lean();
 
-    if (!orders || orders.length === 0) {
+    if (orders.length === 0) {
       return res.status(404).json({
         success: false,
         message: `No orders found for user_id: ${user_id}`,
       });
     }
 
-    // Step 2: Extract order_ids
-    const orderIds = orders.map((order) => order.order_id).filter(Boolean);
+    // 2️⃣ Extract order_ids
+    const orderIds = orders.map((o) => o.order_id);
 
-    if (orderIds.length === 0) {
-      return res.status(500).json({
-        success: false,
-        message: "Orders found, but no valid order_id present in them",
-      });
-    }
+    // 3️⃣ Fetch payments
+    const payments = await Payment.find({ order_id: { $in: orderIds } }).lean();
+    const paymentMap = Object.fromEntries(
+      payments.map((p) => [p.order_id, p])
+    );
 
-    // Step 3: Get all payments linked to the order_ids
-    const payments = await Payment.find({ order_id: { $in: orderIds } });
+    // 4️⃣ Extract unique product_ids
+    const productIds = [
+      ...new Set(
+        orders.flatMap((o) =>
+          o.products.map((p) => p.product_id)
+        )
+      ),
+    ];
 
-    // Step 4: Get all product_ids from all orders
-    const productIds = [];
-    orders.forEach((order) => {
-      order.products.forEach((product) => {
-        if (product.product_id) {
-          productIds.push(product.product_id);
-        }
-      });
-    });
+    // 5️⃣ Fetch ALL product details
+    const products = await Product.find({
+      product_id: { $in: productIds },
+    }).select('-product_details').lean();
 
-    // Step 5: Get all primary images for those product_ids
+    const productDetailMap = Object.fromEntries(
+      products.map((p) => [p.product_id, p])
+    );
+
+    // 6️⃣ Fetch primary images
     const productImages = await ProductImg.find({
       product_id: { $in: productIds },
       is_primary: true,
-    });
+    }).lean();
 
-    // ✅ Step 6: Map product_id to its first primary image (avoid overwrite)
-    const imageMap = {};
-    productImages.forEach((img) => {
-      if (!imageMap[img.product_id]) {
-        imageMap[img.product_id] = img.image_url;
-      }
-    });
+    const imageMap = Object.fromEntries(
+      productImages.map((img) => [img.product_id, img.image_url])
+    );
 
-    // Step 7: Merge images into products
-    const enrichedOrders = orders.map((order) => {
-      const updatedProducts = order.products.map((product) => {
-        return {
-          ...product._doc,
-          product_image: imageMap[product.product_id] || null,
-        };
-      });
+    // 7️⃣ Merge everything
+    const enrichedOrders = orders.map((order) => ({
+      order: {
+        ...order,
+        createdAtIST: new Date(order.createdAt).toLocaleString("en-IN", {
+          timeZone: "Asia/Kolkata",
+        }),
+        products: order.products.map((p) => ({
+          ...p,
+          product_image: imageMap[p.product_id] || null,
+          product_details: productDetailMap[p.product_id] || null,  // ✅ FULL product details
+        })),
+      },
+      payment: paymentMap[order.order_id] || null,
+    }));
 
-      const payment = payments.find((p) => p.order_id === order.order_id);
-
-      return {
-        order: {
-          ...order._doc,
-          createdAtIST: new Date(order.createdAt).toLocaleString("en-IN", {
-            timeZone: "Asia/Kolkata",
-          }), // ✅ Add IST for user details
-          products: updatedProducts,
-        },
-        payment: payment || null,
-      };
-    });
-
-    // Step 8: Return response
     return res.status(200).json({
       success: true,
-      message: "Orders with payment and product images fetched successfully",
+      message: "Orders + payments + product full details fetched",
       data: enrichedOrders,
     });
   } catch (error) {
-    console.error("🔥 Error in getDetailswithUser:", error.message);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
-      error: error.message || "Something went wrong",
+      error: error.message,
     });
   }
 };
+
 
 exports.updateOrderStatus = async (req, res) => {
   try {
