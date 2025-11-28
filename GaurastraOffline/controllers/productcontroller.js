@@ -4,6 +4,7 @@ const slugify = require("slugify");
 const { v4: uuidv4 } = require("uuid");
 const { upload_qr_image } = require("../utils/uploadImage");
 const QRCode = require("qrcode");
+const { validateToken } = require("../utils/jwt");
 
 const variantSchema = Joi.object({
   color: Joi.string().required(),
@@ -55,7 +56,7 @@ exports.createProduct = async (req, res) => {
     value.slug = `${generatedSlug}-${randString}`;
 
 
-    // 🚀 4. Add unique ID + QR for each variant
+    // 🚀 4. Add unique ID  QR for each variant
     if (value.variants && value.variants.length > 0) {
 
       for (let variant of value.variants) {
@@ -111,6 +112,7 @@ exports.getAllProducts = async (req, res) => {
 // GET SINGLE product varient
 exports.getProductByUniqIdVariantId = async (req, res) => {
   try {
+
     const { productId, variantId } = req.params;
 
     const prodData = await Product.findOne({ unique_id: productId });

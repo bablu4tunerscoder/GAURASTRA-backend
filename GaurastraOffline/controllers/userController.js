@@ -70,7 +70,7 @@ exports.loginUser = async (req, res) => {
             }
         };
 
-        const token = await generateToken(payload, '7d');
+        const token = await generateToken(payload, '24h');
 
         res.json({
             token,
@@ -81,7 +81,7 @@ exports.loginUser = async (req, res) => {
                 active:user.is_active
             },
             msg: 'Login successful',
-            expiresIn: '7 days'
+            expiresIn: '24h'
         });
 
     } catch (err) {

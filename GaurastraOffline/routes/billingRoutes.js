@@ -2,13 +2,14 @@ const express = require("express");
 const router = express.Router();
 
 const billingcontrollers = require("../controllers/billingControllers");
+const { offlineAuthMiddleware } = require("../middleware/auth");
 
   
-router.post("/create", billingcontrollers.createBilling);
-router.post("/calculate", billingcontrollers.calculateBilling);
-router.get("/", billingcontrollers.getAllBilling);
-router.get("/:id", billingcontrollers.getBillingById);
-router.put("/:id", billingcontrollers.updateBilling);
-router.delete("/:id", billingcontrollers.deleteBilling);
+router.post("/create", offlineAuthMiddleware, billingcontrollers.createBilling);
+router.post("/calculate",offlineAuthMiddleware, billingcontrollers.calculateBilling);
+router.get("/", offlineAuthMiddleware,  billingcontrollers.getAllBilling);
+router.get("/:id", offlineAuthMiddleware, billingcontrollers.getBillingById);
+router.put("/:id",offlineAuthMiddleware, billingcontrollers.updateBilling);
+router.delete("/:id", offlineAuthMiddleware, billingcontrollers.deleteBilling);
 
 module.exports = router;

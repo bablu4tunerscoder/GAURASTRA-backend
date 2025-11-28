@@ -22,7 +22,11 @@ const generateToken = (payload, expiresIn = '1h') => {
     });
 };
 
-// Export using CommonJS syntax
+
+
+
+
+
 module.exports = { 
-    generateToken 
+    generateToken ,
 };
