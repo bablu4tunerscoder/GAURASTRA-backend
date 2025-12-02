@@ -1,5 +1,5 @@
-const OfflineBilling = require("../Models/billing");
-const OfflineProduct = require("../Models/product");
+const OfflineBilling = require("../models/billing");
+const OfflineProduct = require("../models/product");
 const moment = require("moment");
 
 exports.getRealTimeSales = async (req, res) => {

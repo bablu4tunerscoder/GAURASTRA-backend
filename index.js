@@ -21,7 +21,7 @@ const leadRoutes = require('./Routes/lead.routes');
 const ratingRoutes = require('./Routes/ratingRoutes');
 
 
-const RootRoutesOffline = require('./GaurastraOffline/routes/root');
+const RootRoutesOffline = require('./gaurastra-offline/routes/root');
 
 dotenv.config();
 connectDB();

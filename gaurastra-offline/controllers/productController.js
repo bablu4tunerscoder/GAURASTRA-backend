@@ -1,4 +1,4 @@
-const Product = require("../Models/product");
+const Product = require("../models/product");
 const Joi = require("joi");
 const slugify = require("slugify");
 const { v4: uuidv4 } = require("uuid");

@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-const billingcontrollers = require("../controllers/billingControllers");
+const billingcontrollers = require("../controllers/billingController");
 const { offlineAuthMiddleware } = require("../middleware/auth");
 
   
