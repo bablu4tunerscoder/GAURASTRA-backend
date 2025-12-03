@@ -215,6 +215,7 @@ exports.getAdminDashboard = async (req, res) => {
     /* ---------------------------------------------------
      3. DAILY SUMMARY
     --------------------------------------------------- */
+
     const startOfDay = moment().startOf("day").toDate();
     const endOfDay = moment().endOf("day").toDate();
 
@@ -281,7 +282,6 @@ exports.getAdminDashboard = async (req, res) => {
     });
 
     const repeatCustomers = Object.values(customerCount).filter((c) => c > 1).length;
-
 
     /* ---------------------------------------------------
      FINAL RESPONSE → EVERYTHING IN ONE API

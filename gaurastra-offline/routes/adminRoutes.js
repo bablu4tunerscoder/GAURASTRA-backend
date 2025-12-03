@@ -7,6 +7,6 @@ router.get("/inventory-status",offlineAuthMiddleware, offlineAdminMiddleware, ad
 router.get("/daily-summary",offlineAuthMiddleware, offlineAdminMiddleware, admin.getDailySummary);
 router.get("/gst-report", offlineAuthMiddleware, offlineAdminMiddleware,admin.getGSTReport);
 router.get("/performance",offlineAuthMiddleware, offlineAdminMiddleware, admin.getStorePerformance);
-router.get("/dashboard",offlineAuthMiddleware, offlineAdminMiddleware, admin.getAdminDashboard);
+router.get("/dashboard", admin.getAdminDashboard);
 
 module.exports = router;
