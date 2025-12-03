@@ -24,8 +24,6 @@ exports.getRealTimeSales = async (req, res) => {
   }
 };
 
-
-
 exports.getInventoryStatus = async (req, res) => {
   try {
     const products = await OfflineProduct.find();

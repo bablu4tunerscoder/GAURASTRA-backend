@@ -3,20 +3,24 @@ const router = express.Router();
 const productCtrl = require("../controllers/productController");
 const { offlineAuthMiddleware } = require("../middleware/auth");
 
-// CREATE
-router.post("/create", offlineAuthMiddleware, productCtrl.createProduct);
+// workers
+router.post("/w/create", offlineAuthMiddleware, productCtrl.createProduct);
+router.post("/w/create", offlineAuthMiddleware, productCtrl.createProduct);
+router.get("/w",offlineAuthMiddleware, productCtrl.getAllProducts);
+router.get("/w/p/:id", offlineAuthMiddleware, productCtrl.getProductByUniqId);
+router.get("/w/:productId/variant/:variantId",offlineAuthMiddleware, productCtrl.getProductByUniqIdVariantId);
+router.put("/w/update/:id", offlineAuthMiddleware, productCtrl.updateProduct);
+router.delete("/w/delete/:id",offlineAuthMiddleware , productCtrl.deleteProduct);
 
-// READ
-router.get("/",offlineAuthMiddleware, productCtrl.getAllProducts);
 
-// GET SINGLE
-router.get("/:id", offlineAuthMiddleware, productCtrl.getProductByUniqId);
-router.get("/:productId/variant/:variantId",offlineAuthMiddleware, productCtrl.getProductByUniqIdVariantId);
+//admin
+router.post("/create" , productCtrl.createProduct);
+router.post("/create", productCtrl.createProduct);
+router.get("/", productCtrl.getAllProducts);
+router.get("/:id", productCtrl.getProductByUniqId);
+router.get("/:productId/variant/:variantId", productCtrl.getProductByUniqIdVariantId);
+router.put("/update/:id", productCtrl.updateProduct);
+router.delete("/delete/:id" , productCtrl.deleteProduct);
 
-// UPDATE
-router.put("/update/:id", offlineAuthMiddleware, productCtrl.updateProduct);
-
-// DELETE
-router.delete("/delete/:id",offlineAuthMiddleware , productCtrl.deleteProduct);
 
 module.exports = router;
