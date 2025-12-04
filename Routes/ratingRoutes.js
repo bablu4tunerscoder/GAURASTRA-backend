@@ -7,13 +7,13 @@ const {
     listAllRatingsForAdmin,
     updatePublishStatus
 } = require('../Controllers/ratingCommentController');
+const { authCheck, permissionCheck } = require("../Utils/JWTAuth");
 
+router.post('/add',authCheck, createRating);
+router.get('/:productId/ratings',authCheck, listRatingsByProduct); 
 
-router.post('/add', createRating);
-router.get('/:productId/ratings', listRatingsByProduct); 
-
-router.get('/', listAllRatingsForAdmin);
-router.patch('/update/:ratingId/', updatePublishStatus);
+router.get('/', authCheck, permissionCheck('ratings'), listAllRatingsForAdmin);
+router.patch('/update/:ratingId/', authCheck , updatePublishStatus);
 
 
 module.exports = router;

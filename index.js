@@ -19,6 +19,7 @@ const couponRouter = require("./Routes/couponRoutes");
 const bannerRoutes = require("./Routes/bannerRoutes");
 const leadRoutes = require('./Routes/lead.routes');
 const ratingRoutes = require('./Routes/ratingRoutes');
+const assignRoutes = require('./Routes/assignRoutes');
 
 
 const RootRoutesOffline = require('./gaurastra-offline/routes/root');
@@ -109,6 +110,7 @@ app.use("/api/banner", bannerRoutes);
 app.use('/api/leads', leadRoutes);
 app.use('/api/rating', ratingRoutes);
 app.use("/api/offline/", RootRoutesOffline);
+app.use("/api/assign/",assignRoutes );
 
 
 // Main test route

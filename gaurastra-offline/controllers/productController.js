@@ -183,7 +183,7 @@ exports.getProductByUniqId = async (req, res) => {
 
 exports.updateProduct = async (req, res) => {
   try {
-    const { productId } = req.params;
+    const  productId  = req.params.id;
 
     const product = await Product.findOne({ unique_id: productId });
 

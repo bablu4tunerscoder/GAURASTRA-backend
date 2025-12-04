@@ -2,6 +2,7 @@
 const express = require("express");
 const router = express.Router();
 const paymentController = require("../Controllers/payment.controller");
+const { authCheck, permissionCheck } = require("../Utils/JWTAuth");
 
 // --- Health (quick sanity check) ---
 router.get("/health", (req, res) => res.json({ ok: true }));
@@ -15,11 +16,11 @@ router.get("/verify/:merchantTransactionId", paymentController.verifyPayment);
 router.post("/refund", paymentController.initiateRefund);
 
 // --- Admin / utility endpoints ---
-router.get("/merchant/:merchantTransactionId", paymentController.getPaymentByMerchant);
-router.get("/pending", paymentController.getPendingPayments);
-router.put("/update-status", paymentController.updatePaymentStatus);
+router.get("/merchant/:merchantTransactionId",  authCheck, permissionCheck('payment'), paymentController.getPaymentByMerchant);
+router.get("/pending", authCheck, permissionCheck('payment'), paymentController.getPendingPayments);
+router.put("/update-status", authCheck, permissionCheck('payment'), paymentController.updatePaymentStatus);
 
 // --- Dynamic (keep LAST) ---
-router.get("/:paymentId", paymentController.getPaymentDetails);
+router.get("/:paymentId",  authCheck, paymentController.getPaymentDetails);
 
 module.exports = router;

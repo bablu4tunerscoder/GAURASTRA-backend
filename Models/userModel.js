@@ -6,26 +6,37 @@ const userSchema = new mongoose.Schema(
     user_id: { type: String, unique: true, required: true, default: uuidv4 },
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
-    phone: { type: String, required: true, index:true },
+    phone: { type: String, required: true, index: true },
     password: { type: String },
     address: { type: String },
     latitude: { type: Number },
     longitude: { type: Number },
     role: {
       type: String,
-      enum: ["Customer", "Admin"],
+      enum: ["Customer", "Admin", "Employee"],
       default: "Customer",
-      index:true
+      index: true
+    },
+    permissions: {
+      type: [String], // product, blog, category, orders, user, landing, ratings, coupon
+      default: [],
+      index: true
     },
     ipAddress: { type: String },
     networkAddress: { type: String },
-    status: { type: String, enum: ["Active", "Inactive"], default: "Active", index:true },
-    profileImage: { type: String, default: "/Uploads/images/default.webp" },
-    
-    // ✅ ADD THIS FIELD
-    availableCoupons: [{ 
-      type: String, 
-      index:true
+    status: {
+      type: String,
+      enum: ["Active", "Inactive"],
+      default: "Active", index: true
+    },
+    profileImage: {
+      type: String,
+      default: "/Uploads/images/default.webp"
+    },
+
+    availableCoupons: [{
+      type: String,
+      index: true
     }],
   },
   { timestamps: true }

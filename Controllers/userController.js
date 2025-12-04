@@ -1,5 +1,5 @@
 const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
+
 const User = require("../Models/userModel");
 const Lead = require("../Models/lead.model");
 const { getGeolocation } = require("../Utils/geolocation");
@@ -9,6 +9,7 @@ const { v4: uuidv4 } = require("uuid");
 const admin = require("firebase-admin");
 const serviceAccount = require("../Config/serviceAccountKey.json");
 const serviceAccountProd = require("../Config/serviceAccountKeyProd.json");
+const { createToken } = require("../Utils/JWTAuth");
 
 const registerAll = async (req, res) => {
   try {
@@ -110,9 +111,6 @@ const loginAll = async (req, res) => {
   try {
     const { emailOrPhone, password } = req.body;
 
-    console.log('emailOrPhone, password', req.body)
-
-
     // Find User
     const user = await User.findOne({
       $or: [{ email: emailOrPhone }, { phone: emailOrPhone }],
@@ -130,12 +128,7 @@ const loginAll = async (req, res) => {
         .json({ status: "0", message: "Invalid credentials" });
     }
 
-    // Generate Token
-    const token = jwt.sign(
-      { user_id: user.user_id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+   const token = createToken(user, '7d')
 
     res.status(200).json({
       status: "1",
@@ -151,6 +144,7 @@ const loginAll = async (req, res) => {
         latitude: user.latitude,
         longitude: user.longitude,
         profileImage: user.profileImage,
+        permissions: user.permissions,
         token,
       },
     });
@@ -281,11 +275,7 @@ const googleLogin = async (req, res) => {
     }
 
     // Generate authentication token (JWT)
-    const authToken = jwt.sign(
-      { userId: user.user_id, email: user.email, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+    const authToken = createToken(user, '7d')
 
     res.status(200).json({
       status: "1",
@@ -305,7 +295,7 @@ const googleLogin = async (req, res) => {
 const getAllUsers = async (req, res) => {
   try {
     const users = await User.find().sort({ createdAt: -1 });
-    res.status(200).json(users); // Return users as a JSON response
+    res.status(200).json(users); 
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Error retrieving users" });

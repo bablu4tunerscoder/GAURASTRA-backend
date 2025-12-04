@@ -8,11 +8,12 @@ const {
   getUserActivity,
   clearAllActivities,
 } = require("../Controllers/UserActivityController");
+const { authCheck, permissionCheck } = require("../Utils/JWTAuth");
 
-router.post("/add_activity", logActivity);
-router.get("/activities", getAllActivities);
-router.get("/activityById", getUserActivity);
-router.delete("/delete_activity/:sessionId", deleteUserActivityBySessionId);
-router.delete("/activities/clear", clearAllActivities);
+router.post("/add_activity", authCheck, permissionCheck('user'), logActivity);
+router.get("/activities",authCheck, permissionCheck('user'), getAllActivities);
+router.get("/activityById",authCheck, permissionCheck('user'), getUserActivity);
+router.delete("/delete_activity/:sessionId",authCheck, permissionCheck('user'), deleteUserActivityBySessionId);
+router.delete("/activities/clear", authCheck, permissionCheck('user'),clearAllActivities);
 
 module.exports = router;

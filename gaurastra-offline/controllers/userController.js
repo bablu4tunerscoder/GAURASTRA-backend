@@ -209,3 +209,28 @@ exports.deleteUser = async (req, res) => {
         res.status(500).send('Server Error during user deletion');
     }
 };
+
+exports.getAllUsers = async (req, res) => {
+    try {
+        const users = await User.find().select('-password');
+
+        if (!users || users.length === 0) {
+            return res.status(404).json({ msg: "No users found." });
+        }
+
+        res.json({
+            msg: "Users fetched successfully.",
+            total: users.length,
+            users: users
+        });
+
+    } catch (err) {
+        console.error(err.message);
+
+        if (err.name === "ValidationError") {
+            return res.status(400).json({ msg: err.message });
+        }
+
+        res.status(500).send("Server Error during fetching users");
+    }
+};
