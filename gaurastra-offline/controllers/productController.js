@@ -141,7 +141,7 @@ exports.getProductByUniqIdVariantId = async (req, res) => {
       size: variant.size,
       stock: variant.stock,
       actual_price: variant.actual_price,
-      offer_price: variant.offer_price,
+      offer: variant.offer,
       discounted_price: variant.discounted_price,
       offer_type: variant.offer_type,
       qrcode_url: variant.qrcode_url,
@@ -239,7 +239,7 @@ exports.updateProduct = async (req, res) => {
 
           existingVariant.stock = variantData.stock ?? existingVariant.stock;
           existingVariant.actual_price = variantData.actual_price ?? existingVariant.actual_price;
-          existingVariant.offer_price = variantData.offer_price ?? existingVariant.offer_price;
+          existingVariant.offer = variantData.offer ?? existingVariant.offer;
           existingVariant.offer_type = variantData.offer_type ?? existingVariant.offer_type;
 
           updatedVariants.push(existingVariant);
@@ -267,7 +267,7 @@ exports.updateProduct = async (req, res) => {
           size: variantData.size,
           stock: variantData.stock || 0,
           actual_price: variantData.actual_price,
-          offer_price: variantData.offer_price || 0,
+          offer: variantData.offer || 0,
           offer_type: variantData.offer_type || "none",
           qrcode_url: qrUpload.url,
         });

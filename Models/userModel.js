@@ -18,7 +18,7 @@ const userSchema = new mongoose.Schema(
       index: true
     },
     permissions: {
-      type: [String], // product, blog, category, orders, user, landing, ratings, coupon
+      type: [String], // product, blog, category, orders, user, landing, ratings, coupon, payment
       default: [],
       index: true
     },

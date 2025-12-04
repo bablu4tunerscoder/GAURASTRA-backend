@@ -7,9 +7,11 @@ const axios = require("axios");
 const { processImage } = require("../Middlewares/uploadMiddleware");
 const { v4: uuidv4 } = require("uuid");
 const admin = require("firebase-admin");
-const serviceAccount = require("../Config/serviceAccountKey.json");
+// const serviceAccount = require("../Config/serviceAccountKey.json");
 const serviceAccountProd = require("../Config/serviceAccountKeyProd.json");
 const { createToken } = require("../Utils/JWTAuth");
+
+
 
 const registerAll = async (req, res) => {
   try {
@@ -42,7 +44,12 @@ const registerAll = async (req, res) => {
     let ipAddress = null,
       networkAddress = null;
 
+    let  permissions=[]
+
     if (role === "Customer") {
+      
+      permissions=[]
+
       try {
         // ✅ Get actual IP address from headers
         ipAddress =
@@ -62,7 +69,10 @@ const registerAll = async (req, res) => {
       }
     }
 
-   
+  
+   if (role === "Admin") {
+       permissions=["*"]
+    }
 
     // Default profile image
     let profileImage = "/Uploads/images/default.webp";
@@ -81,6 +91,7 @@ const registerAll = async (req, res) => {
       name,
       email,
       phone,
+      permissions,
       password: hashedPassword,
       address,
       latitude: userLatitude,
@@ -189,7 +200,10 @@ const googleRegister = async (req, res) => {
     let ipAddress = null,
       networkAddress = null;
 
+   let  permissions = []
+
     if (role === "Customer") {
+       permissions=[]
       try {
         // ✅ Get actual IP address from headers
         ipAddress =
@@ -201,12 +215,15 @@ const googleRegister = async (req, res) => {
           ipAddress = ipAddress.replace("::ffff:", "");
         }
 
-        // 🗺 Get location info based on IP
+        // Get location info based on IP
         const ipData = await axios.get(`https://ipapi.co/${ipAddress}/json/`);
         networkAddress = `${ipData.data.city}, ${ipData.data.region}, ${ipData.data.country_name}`;
       } catch (err) {
         console.log("IP Info Error:", err.message);
       }
+    }
+     if (role === "Admin") {
+       permissions=["*"]
     }
 
     // Default profile image
@@ -226,6 +243,7 @@ const googleRegister = async (req, res) => {
       password: "",
       address: "",
       latitude: "",
+      permissions,
       longitude: "",
       role,
       ipAddress,
@@ -285,6 +303,7 @@ const googleLogin = async (req, res) => {
         token: authToken,
       },
     });
+
   } catch (error) {
     console.log("Error:", error.message);
     res.status(500).json({ status: "0", message: error.message });
@@ -380,6 +399,7 @@ const updateUser = async (req, res) => {
     res.status(500).json({ status: "0", message: error.message });
   }
 };
+
 
 module.exports = {
   registerAll,
