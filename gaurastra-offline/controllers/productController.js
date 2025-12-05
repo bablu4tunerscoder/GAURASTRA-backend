@@ -10,7 +10,6 @@ const variantSchema = Joi.object({
   color: Joi.string().required(),
   size: Joi.string().required(),
   stock: Joi.number().min(0).default(0),
-
   actual_price: Joi.number().min(0).required(),
   offer: Joi.number().min(0).default(0),
   offer_type: Joi.string().valid("percentage", "flat", "none").default("none"),
@@ -21,7 +20,6 @@ const productValidationSchema = Joi.object({
   details: Joi.string().allow(""),
   images: Joi.array().items(Joi.string()).default([]),
   active: Joi.boolean().default(true),
-
   variants: Joi.array().items(variantSchema).min(1).required(),
 });
 
@@ -295,6 +293,59 @@ exports.updateProduct = async (req, res) => {
   }
 };
 
+exports.updateSingleVariant = async (req, res) => {
+  try {
+    const  productId = req.params.productId
+     const  variantId = req.params.variantId
+
+    // Find product
+    const product = await Product.findOne({ unique_id: productId });
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    // Find specific variant inside product
+    const variant = product.variants.find(
+      (v) => v.variant_unique_id === variantId
+    );
+
+    if (!variant) {
+      return res.status(404).json({
+        success: false,
+        message: "Variant not found",
+      });
+    }
+
+    // Update allowed fields
+    const data = req.body;
+
+    if (data.color !== undefined) variant.color = data.color;
+    if (data.size !== undefined) variant.size = data.size;
+    if (data.stock !== undefined) variant.stock = data.stock;
+    if (data.actual_price !== undefined) variant.actual_price = data.actual_price;
+    if (data.offer !== undefined) variant.offer = data.offer;
+    if (data.offer_type !== undefined) variant.offer_type = data.offer_type;
+
+    await product.save();
+
+    return res.json({
+      success: true,
+      message: "Variant updated successfully",
+      data: variant,
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
+};
+
 // DELETE
 exports.deleteProduct = async (req, res) => {
   try {
@@ -321,6 +372,11 @@ exports.deleteProduct = async (req, res) => {
     });
   }
 };
+
+
+
+
+
 
 
 

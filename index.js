@@ -109,8 +109,11 @@ app.use("/api/coupons", couponRouter);
 app.use("/api/banner", bannerRoutes);
 app.use('/api/leads', leadRoutes);
 app.use('/api/rating', ratingRoutes);
-app.use("/api/offline/", RootRoutesOffline);
 app.use("/api/assign/",assignRoutes );
+
+app.use("/api/offline", RootRoutesOffline);
+
+
 
 
 // Main test route

@@ -11,6 +11,7 @@ router.get("/w/p/:id", offlineAuthMiddleware, productCtrl.getProductByUniqId);
 router.get("/w/:productId/variant/:variantId",offlineAuthMiddleware, productCtrl.getProductByUniqIdVariantId);
 router.put("/w/update/:id", offlineAuthMiddleware, productCtrl.updateProduct);
 router.delete("/w/delete/:id",offlineAuthMiddleware , productCtrl.deleteProduct);
+router.put("/update-variant/w/p/:productId/v/:variantId",offlineAuthMiddleware , productCtrl.updateSingleVariant);
 
 
 //admin
@@ -21,6 +22,11 @@ router.get("/:id", productCtrl.getProductByUniqId);
 router.get("/:productId/variant/:variantId", productCtrl.getProductByUniqIdVariantId);
 router.put("/update/:id", productCtrl.updateProduct);
 router.delete("/delete/:id" , productCtrl.deleteProduct);
+router.put("/update-variant/p/:productId/v/:variantId", productCtrl.updateSingleVariant);
+
+
+
+
 
 
 module.exports = router;

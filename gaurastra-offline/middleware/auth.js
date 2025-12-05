@@ -3,7 +3,6 @@ const jwt = require('jsonwebtoken');
 
 
 const offlineAuthMiddleware = async (req, res, next) => {
-
     try {
         // 1. Token header se read kare
         const authHeader = req.headers["authorization"];
@@ -15,7 +14,7 @@ const offlineAuthMiddleware = async (req, res, next) => {
             });
         }
 
-        const token = authHeader.split(" ")[1];
+        let token = authHeader.split(" ")[1];
 
         if (!token) {
             return res.status(403).json({
@@ -24,7 +23,10 @@ const offlineAuthMiddleware = async (req, res, next) => {
             });
         }
 
-        // 3. Check environment secret
+        // 2. Remove extra quotes + spaces
+        token = token.replace(/"/g, "").trim();
+
+        // 3. Check secret
         if (!process.env.JWT_SECRET) {
             console.error("❌ JWT_SECRET missing in env");
             return res.status(500).json({
@@ -32,6 +34,8 @@ const offlineAuthMiddleware = async (req, res, next) => {
                 message: "Server configuration error"
             });
         }
+
+        // console.log("CLEAN TOKEN:", token);
 
         // 4. JWT verify
         jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
@@ -43,8 +47,7 @@ const offlineAuthMiddleware = async (req, res, next) => {
                 });
             }
 
-            // console.log('decoded', decoded);
-            req.user = decoded.user;  
+            req.user = decoded.user;
             next();
         });
 
@@ -56,6 +59,7 @@ const offlineAuthMiddleware = async (req, res, next) => {
         });
     }
 };
+
 
 const offlineAdminMiddleware = (req, res, next) => {
   try {

@@ -71,5 +71,7 @@ const processImage = async (filePath) => {
   return `/${relativePath.replace(/\\/g, "/")}`;
 };
 
-module.exports = upload;
-module.exports.processImage = processImage;
+module.exports = {
+  upload,
+  processImage,
+};
