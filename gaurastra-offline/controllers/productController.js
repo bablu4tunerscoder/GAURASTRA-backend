@@ -161,7 +161,6 @@ exports.getProductByUniqIdVariantId = async (req, res) => {
 };
 
 
-
 // GET SINGLE
 exports.getProductByUniqId = async (req, res) => {
   try {
@@ -178,6 +177,7 @@ exports.getProductByUniqId = async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 };
+
 
 exports.updateProduct = async (req, res) => {
   try {
