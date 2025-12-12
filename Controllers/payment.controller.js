@@ -2,6 +2,7 @@ const phonepeService = require("../Utils/phonepe.service");
 const Order = require("../Models/orderModel");
 const Payment = require("../Models/paymentModel");
 const phonepeConfig = require("../Utils/phonepe.config");
+const { pagination_ } = require("../Utils/pagination_");
 
 // Helper for IST timestamps
 function getISTDate() {
@@ -282,13 +283,46 @@ exports.getPaymentByMerchant = async (req, res) => {
 // Get all pending payments
 exports.getPendingPayments = async (req, res) => {
   try {
-    const payments = await Payment.find({ payment_status: "PENDING" }).sort({ createdAt: -1 });
-    res.json({ success: true, payments });
+    // Extract pagination details
+    const { page, limit, skip, hasPrevPage } = pagination_(req.query, {
+      defaultLimit: 10,
+      maxLimit: 20,
+    });
+
+    // Run both queries in parallel
+    const [payments, totalRecords] = await Promise.all([
+      Payment.find({ payment_status: "PENDING" })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+
+      Payment.countDocuments({ payment_status: "PENDING" }),
+    ]);
+
+    const totalPages = Math.ceil(totalRecords / limit);
+    const hasNextPage = page < totalPages;
+
+    res.json({
+      success: true,
+
+      pagination: {
+        page,
+        limit,
+        totalRecords,
+        totalPages,
+        hasPrevPage,
+        hasNextPage,
+      },
+
+      payments,
+    });
   } catch (error) {
     console.error("Get pending payments error:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
+
 
 // Update payment status manually (admin utility)
 exports.updatePaymentStatus = async (req, res) => {

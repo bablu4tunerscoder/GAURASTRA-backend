@@ -9,10 +9,8 @@ const {
   getCouponById,
   updateCoupon,
   deleteCoupon,
-  applyCoupon,
-  suggestCoupons,
   removeUserFromCoupon,
-} = require("../Controllers/couponController");
+} = require("../Controllers/couponControllerPublic");
 
 
 // Routes
@@ -21,8 +19,8 @@ router.get("/allCoupons", authCheck, permissionCheck('coupon'), getAllCoupons); 
 router.get("/oneCoupon/:id", getCouponById); // Get one coupon by coupon_id
 router.put("/updateCoupon/:id",authCheck, permissionCheck('coupon'), updateCoupon); // Update coupon
 router.delete("/deleteCoupons/:id",authCheck, permissionCheck('coupon'), deleteCoupon); // Delete coupon
-router.post("/apply", applyCoupon);
-router.post("/suggest", suggestCoupons);
+
 router.post("/remove-user-from-coupon", removeUserFromCoupon); // 👈 Add this route
+
 
 module.exports = router;

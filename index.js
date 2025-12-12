@@ -15,12 +15,14 @@ const blogRoutes = require("./Routes/blogRoutes");
 const landingRoutes = require("./Routes/landingRoutes");
 const userActivityRoutes = require("./Routes/UserActivityRouter");
 const facebookEventsRoutes = require("./Routes/facebookEventsRoute");
-const couponRouter = require("./Routes/couponRoutes");
+const couponRouterPublic = require("./Routes/couponRoutesPublic");
+const couponRouterUser = require("./Routes/couponRoutesUser");
+const couponRouterMain = require("./Routes/couponRoutesMain");
 const bannerRoutes = require("./Routes/bannerRoutes");
-const leadRoutes = require('./Routes/lead.routes');
+const leadRoutes = require('./Routes/leadRoutes');
 const ratingRoutes = require('./Routes/ratingRoutes');
 const assignRoutes = require('./Routes/assignRoutes');
-
+const googleAnalyticsRoutes = require('./Routes/GoogleAnalyticsRoutes');
 
 const RootRoutesOffline = require('./gaurastra-offline/routes/root');
 
@@ -35,6 +37,8 @@ const allowedOrigins = [
   "http://localhost:3001",
   "https://www.gaurastra.com",
   "https://www.pilot9522.gaurastra.com",
+  "https://test.gaurastra.com",
+  "https://testpanel.gaurastra.com",
 ];
 
 // Security Headers Middleware
@@ -105,11 +109,14 @@ app.use("/api/blogs", blogRoutes);
 app.use("/api/landing", landingRoutes);
 app.use("/api/activity", userActivityRoutes);
 app.use("/api/facebook", facebookEventsRoutes);
-app.use("/api/coupons", couponRouter);
+app.use("/api/coupons-user", couponRouterUser);
+app.use("/api/coupons-public", couponRouterPublic);
+app.use("/api/coupons", couponRouterMain);
 app.use("/api/banner", bannerRoutes);
 app.use('/api/leads', leadRoutes);
 app.use('/api/rating', ratingRoutes);
 app.use("/api/assign/",assignRoutes );
+app.use("/api/ga/", googleAnalyticsRoutes);
 
 app.use("/api/offline", RootRoutesOffline);
 

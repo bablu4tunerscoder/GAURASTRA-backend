@@ -2,6 +2,8 @@ const blogsModel = require("../Models/blogModel");
 const { processMedia } = require("../Middlewares/productuploadMiddleware");
 const path = require("path");
  
+const { pagination_ } = require("../Utils/pagination_");
+
 // Function to format the slug correctly
 const formatSlug = (title) => {
   return title
@@ -122,24 +124,59 @@ const findBlogBySlug = async (req, res) => {
 // Find all blogs API
 const findAllBlogs = async (req, res) => {
   try {
-    // Fetch all blogs from the database
-    const blogs = await blogsModel.find().sort({ createdAt: -1 }).lean();
- 
+    // Pagination extract
+    const { page, limit, skip, hasPrevPage } = pagination_(req.query, {
+      defaultLimit: 10,
+      maxLimit: 20,
+    });
+
+    // Parallel execution
+    const [blogs, totalRecords] = await Promise.all([
+      blogsModel
+        .find()
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+
+      blogsModel.countDocuments(),
+    ]);
+
     if (blogs.length === 0) {
-      return res.status(404).json({ status: "0", message: "No blogs found" });
+      return res.status(404).json({
+        status: "0",
+        message: "No blogs found",
+      });
     }
- 
+
+    const totalPages = Math.ceil(totalRecords / limit);
+    const hasNextPage = page < totalPages;
+
     res.status(200).json({
       status: "1",
-      message: "Blog retrieved successfully",
+      message: "Blogs retrieved successfully",
+
+      pagination: {
+        page,
+        limit,
+        totalRecords,
+        totalPages,
+        hasPrevPage,
+        hasNextPage,
+      },
+
       data: blogs,
     });
   } catch (error) {
-    // console.error("Error fetching blogs:", error);
-    res.status(500).json({ status: "0", message: "Internal Server Error" });
+    res.status(500).json({
+      status: "0",
+      message: "Internal Server Error",
+    });
   }
 };
- 
+
+
+
 // ✅ Find One Blog by blog_id API
 const findOneBlog = async (req, res) => {
   try {

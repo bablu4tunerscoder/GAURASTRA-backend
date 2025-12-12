@@ -1,4 +1,5 @@
 const LandingContent = require("../Models/LandingContent");
+const { pagination_ } = require("../Utils/pagination_");
 
 exports.createLandingContent = async (req, res) => {
   try {
@@ -23,14 +24,42 @@ exports.createLandingContent = async (req, res) => {
  
 exports.getLandingContent = async (req, res) => {
   try {
-    const content = await LandingContent.find().sort({ createdAt: -1 }).lean();
- 
-    res.status(200).json(content);
+    // Extract pagination details
+    const { page, limit, skip, hasPrevPage } = pagination_(req.query, {
+      defaultLimit: 10,
+      maxLimit: 20,
+    });
+
+    // Run queries in parallel
+    const [content, totalRecords] = await Promise.all([
+      LandingContent.find()
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+
+      LandingContent.countDocuments(),
+    ]);
+
+    const totalPages = Math.ceil(totalRecords / limit);
+    const hasNextPage = page < totalPages;
+
+    res.status(200).json({
+      pagination: {
+        page,
+        limit,
+        totalRecords,
+        totalPages,
+        hasPrevPage,
+        hasNextPage,
+      },
+      data: content,
+    });
   } catch (error) {
-    res.status(500).json({ message: "Server Error", error });
+    res.status(500).json({ message: "Server Error", error: error.message });
   }
 };
- 
+
 
 // ✅ GET Landing Content by ID
 exports.getLandingContentById = async (req, res) => {

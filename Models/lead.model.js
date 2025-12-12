@@ -18,19 +18,29 @@ const LeadSchema = new mongoose.Schema({
     required: true,
     index: true,
   },
-  used: { // ✅ 1. Added the 'used' field
-    type: Boolean,
-    default: false,index: true,
+  couponExpiresAt: {
+    type: Date,
+    required: true,
+    index: true,
   },
-   claimedByUser: { // ✅ ADD THIS FIELD
+  backendCreatedAt: {
+    type: Date,
+    default: Date.now,
+    index: true,
+  },
+  used: {
+    type: Boolean,
+    default: false, index: true,
+  },
+  claimedByUser: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     default: null,
     index: true,
   },
-}, 
-{ 
-  timestamps: true // ✅ 2. Replaced manual createdAt with Mongoose's timestamps
-});
+},
+  {
+    timestamps: true
+  });
 
 module.exports = mongoose.models.Lead || mongoose.model('Lead', LeadSchema);

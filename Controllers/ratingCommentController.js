@@ -1,4 +1,5 @@
 const Rating = require('../Models/ratingAndComment');
+const { pagination_ } = require('../Utils/pagination_');
 
 
 const createRating = async (req, res) => {
@@ -46,39 +47,63 @@ const createRating = async (req, res) => {
     }
 };
 
-
 const listRatingsByProduct = async (req, res) => {
-    const product_id = req.params.productId;
-    
-    let filter = { product_id };
-    filter.is_published = true; 
+  const product_id = req.params.productId;
 
-    try {
-        const ratings = await Rating.find(filter)
-            .populate('user_id', 'name email') 
-            .sort({ created_at: -1 }); 
+  let filter = { product_id, is_published: true };
 
-        if (ratings.length === 0) {
-            return res.status(404).json({
-                success: true,
-                data: [],
-                message: 'No ratings found for this product.'
-            });
-        }
+  try {
+    // Pagination extract
+    const { page, limit, skip, hasPrevPage } = pagination_(req.query, {
+      defaultLimit: 10,
+      maxLimit: 20,
+    });
 
-        res.status(200).json({
-            success: true,
-            count: ratings.length,
-            data: ratings
-        });
+    // Fetch ratings with pagination & populate user details
+    const [ratings, totalRecords] = await Promise.all([
+      Rating.find(filter)
+        .populate('user_id', 'name email')
+        .sort({ created_at: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
 
-    } catch (error) {
-        console.error("List ratings error:", error);
-        res.status(500).json({
-            success: false,
-            message: 'Server error occurred while fetching ratings.'
-        });
+      Rating.countDocuments(filter),
+    ]);
+
+    if (ratings.length === 0) {
+      return res.status(404).json({
+        success: true,
+        data: [],
+        message: 'No ratings found for this product.',
+      });
     }
+
+    const totalPages = Math.ceil(totalRecords / limit);
+    const hasNextPage = page < totalPages;
+
+    res.status(200).json({
+      success: true,
+      count: ratings.length,
+
+      pagination: {
+        page,
+        limit,
+        totalRecords,
+        totalPages,
+        hasPrevPage,
+        hasNextPage,
+      },
+
+      data: ratings,
+    });
+  } catch (error) {
+    console.error("List ratings error:", error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error occurred while fetching ratings.',
+    });
+  }
 };
 
 
@@ -125,26 +150,51 @@ const updatePublishStatus = async (req, res) => {
 };
 
 const listAllRatingsForAdmin = async (req, res) => {
-    try {
-        
-        const allRatings = await Rating.find({})
-            .populate('user_id', 'name email')
-            .populate('product_id', 'name ')
-            .sort({ created_at: -1 });
+  try {
+    // Pagination extract
+    const { page, limit, skip, hasPrevPage } = pagination_(req.query, {
+      defaultLimit: 20,
+      maxLimit: 50,
+    });
 
-        res.status(200).json({
-            success: true,
-            count: allRatings.length,
-            data: allRatings
-        });
+    // Fetch ratings with pagination + populate
+    const [allRatings, totalRecords] = await Promise.all([
+      Rating.find({})
+        .populate('user_id', 'name email')
+        .populate('product_id', 'name')
+        .sort({ created_at: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
 
-    } catch (error) {
-        console.error("List all ratings error:", error);
-        res.status(500).json({
-            success: false,
-            message: 'Server error occurred while fetching all ratings.'
-        });
-    }
+      Rating.countDocuments({}),
+    ]);
+
+    const totalPages = Math.ceil(totalRecords / limit);
+    const hasNextPage = page < totalPages;
+
+    res.status(200).json({
+      success: true,
+      count: allRatings.length,
+
+      pagination: {
+        page,
+        limit,
+        totalRecords,
+        totalPages,
+        hasPrevPage,
+        hasNextPage,
+      },
+
+      data: allRatings,
+    });
+  } catch (error) {
+    console.error("List all ratings error:", error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error occurred while fetching all ratings.',
+    });
+  }
 };
 
 module.exports = {

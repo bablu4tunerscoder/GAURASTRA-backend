@@ -4,6 +4,7 @@ const User = require("../Models/userModel");
 const ProductImg = require("../Models/ProductImgModel");
 const Lead = require("../Models/lead.model");
 const Product = require("../Models/ProductModel");
+const { pagination_ } = require("../Utils/pagination_");
 
 // Create New Order
 exports.createOrder = async (req, res) => {
@@ -172,33 +173,59 @@ exports.getOrderWithPayment = async (req, res) => {
 // Get all orders with their payment status (for admin dashboard)
 exports.getAllOrdersWithPayments = async (req, res) => {
   try {
-    // Find all orders
-    const orders = await Order.find().sort({ createdAt: -1 });
+    // Extract pagination props
+    const { page, limit, skip, hasPrevPage } = pagination_(req.query, {
+      defaultLimit: 10,
+      maxLimit: 20,
+    });
 
-    // Get all order IDs
+    // Fetch orders with pagination
+    const [orders, totalRecords] = await Promise.all([
+      Order.find()
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+
+      Order.countDocuments(),
+    ]);
+
+    // Extract order IDs
     const orderIds = orders.map((order) => order.order_id);
 
-    // Find all payments for these orders
+    // Fetch all payments for these orders
     const payments = await Payment.find({ order_id: { $in: orderIds } });
 
-    // Create a payment map for quick lookup
+    // Create quick payment lookup map
     const paymentMap = {};
     payments.forEach((payment) => {
       paymentMap[payment.order_id] = payment;
     });
 
-    // Combine the data
+    // Merge orders + payments
     const ordersWithPayments = orders.map((order) => ({
       ...order.toObject(),
       createdAtIST: new Date(order.createdAt).toLocaleString("en-IN", {
         timeZone: "Asia/Kolkata",
-      }), // ✅ Admin list shows IST
+      }),
       payment: paymentMap[order.order_id] || null,
     }));
 
+    const totalPages = Math.ceil(totalRecords / limit);
+    const hasNextPage = page < totalPages;
+
+    // Response
     res.status(200).json({
       success: true,
-      count: ordersWithPayments.length,
+
+      pagination: {
+        page,
+        limit,
+        totalRecords,
+        totalPages,
+        hasPrevPage,
+        hasNextPage,
+      },
+
       orders: ordersWithPayments,
     });
   } catch (error) {
@@ -210,6 +237,7 @@ exports.getAllOrdersWithPayments = async (req, res) => {
     });
   }
 };
+
 
 // get order and payment details merged together using user_id
 exports.getDetailswithUser = async (req, res) => {

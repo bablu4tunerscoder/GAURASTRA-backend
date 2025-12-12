@@ -3,6 +3,7 @@ const Product = require("../Models/ProductModel");
 const Discount = require("../Models/ProductDiscountModel");
 const Pricing = require("../Models/ProductPricingModel");
 const ProductStock = require("../Models/ProductStockModel");
+const { pagination_ } = require("../Utils/pagination_");
 // 1.==> For percentage, value is the discount percentage (e.g., 20 for 20% off).
 // {
 //     "discount_type": "percentage",
@@ -86,17 +87,30 @@ const findAllWithProductId = async (req, res) => {
   try {
     const { product_id } = req.params;
 
-    // Validate product_id
     if (!product_id) {
       return res
         .status(400)
         .json({ success: false, message: "Product ID is required" });
     }
 
-    // Find all discounts for the given product_id
-    const discounts = await Discount.find({ product_id }).lean();
+    // Extract Pagination
+    const { page, limit, skip, hasPrevPage } = pagination_(req.query, {
+      defaultLimit: 10,
+      maxLimit: 20,
+    });
 
-    if (discounts.length === 0) {
+    // Discounts + total count in parallel
+    const [discounts, totalRecords] = await Promise.all([
+      Discount.find({ product_id })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+
+      Discount.countDocuments({ product_id }),
+    ]);
+
+    if (totalRecords === 0) {
       return res.status(404).json({
         success: false,
         message: "No discounts found for this product",
@@ -111,13 +125,12 @@ const findAllWithProductId = async (req, res) => {
         .json({ success: false, message: "Product not found" });
     }
 
-    // Fetch pricing details for the product
-    const pricingRecords = await Pricing.find({ product_id });
+    // Fetch pricing + stock info
+    const [pricingRecords, stockRecords] = await Promise.all([
+      Pricing.find({ product_id }),
+      ProductStock.find({ product_id }),
+    ]);
 
-    // Fetch stock details for the product
-    const stockRecords = await ProductStock.find({ product_id });
-
-    // Structure the response
     const response = {
       product_details: {
         product_id: product.product_id,
@@ -133,6 +146,7 @@ const findAllWithProductId = async (req, res) => {
         updatedAt: product.updatedAt,
       },
 
+      // Paginated Discounts
       discounts: discounts.map((discount) => ({
         discount_id: discount.discount_id,
         discount_type: discount.discount_type,
@@ -144,6 +158,7 @@ const findAllWithProductId = async (req, res) => {
         updatedAt: discount.updatedAt,
       })),
 
+      // Pricing History
       pricing: pricingRecords.map((pricing) => ({
         price_id: pricing.price_id,
         currency: pricing.currency,
@@ -159,6 +174,7 @@ const findAllWithProductId = async (req, res) => {
         })),
       })),
 
+      // Stock Details
       stock_details: stockRecords.map((stock) => ({
         stock_id: stock.stock_id,
         stock_quantity: stock.stock_quantity,
@@ -167,14 +183,33 @@ const findAllWithProductId = async (req, res) => {
       })),
     };
 
-    res.status(200).json({ success: true, data: response });
+    const totalPages = Math.ceil(totalRecords / limit);
+    const hasNextPage = page < totalPages;
+
+    return res.status(200).json({
+      success: true,
+
+      pagination: {
+        page,
+        limit,
+        totalRecords,
+        totalPages,
+        hasPrevPage,
+        hasNextPage,
+      },
+
+      data: response,
+    });
   } catch (error) {
     console.error("Error fetching product details with discount:", error);
-    res
-      .status(500)
-      .json({ success: false, message: "Server Error", error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
   }
 };
+
 
 // find all discounts
 const findAllWithDiscounts = async (req, res) => {

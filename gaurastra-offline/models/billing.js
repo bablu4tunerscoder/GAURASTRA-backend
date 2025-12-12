@@ -29,8 +29,8 @@ const BillingSchema = new mongoose.Schema(
 
     payment_method: {
       type: String,
-      enum: ["cod", "online", 'card'],
-      default: "cod",
+      enum: ["cash", "online", 'card'],
+      default: "cash",
     },
 
     user_info: {

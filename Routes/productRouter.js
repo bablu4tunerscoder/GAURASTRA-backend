@@ -13,7 +13,7 @@ const { authCheck, permissionCheck } = require("../Utils/JWTAuth");
 
 // product crud routes
 router.post("/addBulk-products", authCheck, permissionCheck('product'), ProductController.bulkUploadProducts);
-router.get("/ProductDetail", authCheck, permissionCheck('product'), ProductController.getAllProductsWithDetails);
+router.get("/ProductDetail",  ProductController.getAllProductsWithDetails);
 router.get("/product/:product_id", ProductController.getOneProductWithDetails);
 router.put("/update-products/:product_id", authCheck, permissionCheck('product'), ProductController.updateProducts);
 router.delete(

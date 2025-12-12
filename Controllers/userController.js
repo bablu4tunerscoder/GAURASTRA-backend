@@ -10,6 +10,7 @@ const admin = require("firebase-admin");
 // const serviceAccount = require("../Config/serviceAccountKey.json");
 const serviceAccountProd = require("../Config/serviceAccountKeyProd.json");
 const { createToken } = require("../Utils/JWTAuth");
+const { pagination_ } = require("../Utils/pagination_");
 
 
 
@@ -145,7 +146,9 @@ const loginAll = async (req, res) => {
       status: "1",
       message: "Login successful",
       data: {
+        user:{
         user_id: user.user_id,
+        userid: user._id,
         name: user.name,
         email: user.email,
         phone: user.phone,
@@ -156,6 +159,7 @@ const loginAll = async (req, res) => {
         longitude: user.longitude,
         profileImage: user.profileImage,
         permissions: user.permissions,
+        },
         token,
       },
     });
@@ -299,8 +303,21 @@ const googleLogin = async (req, res) => {
       status: "1",
       message: "Login successful",
       data: {
-        user,
-        token: authToken,
+        user:{
+        user_id: user.user_id,
+        userid: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        status: user.status,
+        address: user.address,
+        latitude: user.latitude,
+        longitude: user.longitude,
+        profileImage: user.profileImage,
+        permissions: user.permissions,
+        },
+        token:authToken,
       },
     });
 
@@ -313,13 +330,51 @@ const googleLogin = async (req, res) => {
 // To Fetch All User's
 const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find().sort({ createdAt: -1 });
-    res.status(200).json(users); 
+    // Extract pagination from query
+    const { page, limit, skip, hasPrevPage } = pagination_(req.query, {
+      defaultLimit: 20,
+      maxLimit: 50,
+    });
+
+    // Fetch users + total count in parallel
+    const [users, totalRecords] = await Promise.all([
+      User.find()
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+
+      User.countDocuments(),
+    ]);
+
+    const totalPages = Math.ceil(totalRecords / limit);
+    const hasNextPage = page < totalPages;
+
+    res.status(200).json({
+      success: true,
+      count: users.length,
+
+      pagination: {
+        page,
+        limit,
+        totalRecords,
+        totalPages,
+        hasPrevPage,
+        hasNextPage,
+      },
+
+      data: users,
+    });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Error retrieving users" });
+    res.status(500).json({
+      success: false,
+      message: "Error retrieving users",
+      error: err.message,
+    });
   }
 };
+
 
 // To get a single user by ID
 const getUserById = async (req, res) => {

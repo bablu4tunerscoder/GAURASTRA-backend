@@ -1,6 +1,7 @@
 const Category = require("../Models/categoryModel");
 const { v4: uuidv4 } = require("uuid");
-const {cleanString} = require('../Utils/helpers')
+const {cleanString} = require('../Utils/helpers');
+const { pagination_ } = require("../Utils/pagination_");
 
 // ✅ Create Category
 const createCategory = async (req, res) => {
@@ -44,10 +45,39 @@ const createCategory = async (req, res) => {
 // ✅ Get All Categories
 const getAllCategories = async (req, res) => {
   try {
-    const categories = await Category.find().sort({ createdAt: -1 }).lean();
+    // Extract pagination from query
+    const { page, limit, skip, hasPrevPage } = pagination_(req.query, {
+      defaultLimit: 10,
+      maxLimit: 20,
+    });
+
+    // Fetch paginated categories + total count
+    const [categories, totalRecords] = await Promise.all([
+      Category.find()
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+
+      Category.countDocuments(),
+    ]);
+
+    const totalPages = Math.ceil(totalRecords / limit);
+    const hasNextPage = page < totalPages;
+
     res.status(200).json({
       status: "1",
       message: "Categories fetched successfully",
+
+      pagination: {
+        page,
+        limit,
+        totalRecords,
+        totalPages,
+        hasPrevPage,
+        hasNextPage,
+      },
+
       data: categories,
     });
   } catch (error) {

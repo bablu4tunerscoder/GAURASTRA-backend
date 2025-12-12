@@ -39,6 +39,7 @@ Thumbs.db
 
 Config/serviceAccountKey.json
 Config/serviceAccountKeyProd.json
+Config/ga-service-account.json
 
 
 # Misc

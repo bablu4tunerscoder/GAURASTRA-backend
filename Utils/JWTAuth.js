@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken");
 // Generate Token
 const createToken = (user, expiresIn = "7d") => {
   const payload = {
+    phone: user.phone,
     userid: user._id,
     user_id: user.user_id,
     email: user.email,
@@ -74,9 +75,6 @@ function permissionCheck(permission) {
     return res.status(403).json({ message: "Permission Denied" });
   };
 }
-
-
-
 
 
 module.exports = {

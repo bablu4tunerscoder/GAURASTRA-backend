@@ -1,7 +1,8 @@
 const SubCategory = require("../Models/subCategoryModel");
 const Category = require("../Models/categoryModel");
 const { v4: uuidv4 } = require("uuid");
-const {cleanString} = require('../Utils/helpers')
+const {cleanString} = require('../Utils/helpers');
+const { pagination_ } = require("../Utils/pagination_");
 
 // ✅ Create SubCategory
 // ✅ Create SubCategory with conditional gender for Ethnic Wear
@@ -79,32 +80,60 @@ const createSubCategory = async (req, res) => {
 // ✅ Get All SubCategories with Category Data
 const getAllSubCategories = async (req, res) => {
   try {
-    const subcategories = await SubCategory.find()
-      .sort({ Subcategory_id: 1 })
-      .lean();
+    // Extract pagination
+    const { page, limit, skip, hasPrevPage } = pagination_(req.query, {
+      defaultLimit: 10,
+      maxLimit: 20,
+    });
 
-    // Fetch categories for each subcategory
+    // Fetch paginated subcategories + total count
+    const [subcategories, totalRecords] = await Promise.all([
+      SubCategory.find()
+        .sort({ Subcategory_id: 1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+
+      SubCategory.countDocuments(),
+    ]);
+
+    // Fetch category details for each subcategory
     const subcategoriesWithCategoryData = await Promise.all(
       subcategories.map(async (subcat) => {
         const category = await Category.findOne({
           category_id: subcat.category_id,
         }).lean();
+
         return {
           ...subcat,
-          category_details: category || null, // Include category details
+          category_details: category || null,
         };
       })
     );
 
+    const totalPages = Math.ceil(totalRecords / limit);
+    const hasNextPage = page < totalPages;
+
     res.status(200).json({
       status: "1",
       message: "SubCategories fetched successfully",
+
+      pagination: {
+        page,
+        limit,
+        totalRecords,
+        totalPages,
+        hasPrevPage,
+        hasNextPage,
+      },
+
       data: subcategoriesWithCategoryData,
     });
   } catch (error) {
     res.status(500).json({ status: "0", message: error.message });
   }
 };
+
 
 // ✅ Get SubCategory by ID with Category Data
 const getSubCategoryById = async (req, res) => {
@@ -230,7 +259,7 @@ const deleteSubCategory = async (req, res) => {
 // subcategory find by category id
 const findSubCategorywithcategoryID = async (req, res) => {
   try {
-    const { category_id } = req.params; // 🛠️ Extract category_id from request params
+    const { category_id } = req.params;
 
     if (!category_id) {
       return res.status(400).json({
@@ -240,8 +269,22 @@ const findSubCategorywithcategoryID = async (req, res) => {
       });
     }
 
-    // 🛠️ Find all subcategories with the given category_id
-    const subcategories = await SubCategory.find({ category_id });
+    // Pagination extract
+    const { page, limit, skip, hasPrevPage } = pagination_(req.query, {
+      defaultLimit: 10,
+      maxLimit: 20,
+    });
+
+    // Fetch subcategories + total count in parallel
+    const [subcategories, totalRecords] = await Promise.all([
+      SubCategory.find({ category_id })
+        .sort({ Subcategory_id: 1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+
+      SubCategory.countDocuments({ category_id }),
+    ]);
 
     if (!subcategories.length) {
       return res.status(404).json({
@@ -251,9 +294,22 @@ const findSubCategorywithcategoryID = async (req, res) => {
       });
     }
 
+    const totalPages = Math.ceil(totalRecords / limit);
+    const hasNextPage = page < totalPages;
+
     res.status(200).json({
       status: "1",
       success: true,
+
+      pagination: {
+        page,
+        limit,
+        totalRecords,
+        totalPages,
+        hasPrevPage,
+        hasNextPage,
+      },
+
       data: subcategories,
     });
   } catch (error) {
@@ -265,6 +321,7 @@ const findSubCategorywithcategoryID = async (req, res) => {
     });
   }
 };
+
 
 module.exports = {
   createSubCategory,

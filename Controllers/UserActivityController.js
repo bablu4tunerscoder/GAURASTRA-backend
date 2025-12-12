@@ -1,5 +1,6 @@
 // controllers/userActivityController.js
 const UserActivity = require("../Models/UserActivityModel");
+const { pagination_ } = require("../Utils/pagination_");
  
 // POST /api/activity
 const logActivity = async (req, res) => {
@@ -60,14 +61,51 @@ const logActivity = async (req, res) => {
 // GET /api/activities
 const getAllActivities = async (req, res) => {
   try {
-    const activities = await UserActivity.find().sort({ timestamp: -1 });
-    res.json(activities);
+    // Extract pagination from query
+    const { page, limit, skip, hasPrevPage } = pagination_(req.query, {
+      defaultLimit: 20,
+      maxLimit: 30,
+    });
+
+    // Fetch activities + total count in parallel
+    const [activities, totalRecords] = await Promise.all([
+      UserActivity.find()
+        .sort({ timestamp: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+
+      UserActivity.countDocuments(),
+    ]);
+
+    const totalPages = Math.ceil(totalRecords / limit);
+    const hasNextPage = page < totalPages;
+
+    res.status(200).json({
+      success: true,
+      count: activities.length,
+
+      pagination: {
+        page,
+        limit,
+        totalRecords,
+        totalPages,
+        hasPrevPage,
+        hasNextPage,
+      },
+
+      data: activities,
+    });
   } catch (error) {
     console.error("Error fetching activities:", error);
-    res.status(500).json({ error: "Server error while fetching activities" });
+    res.status(500).json({
+      success: false,
+      message: "Server error while fetching activities",
+      error: error.message,
+    });
   }
 };
- 
+
 const getUserActivity = async (req, res) => {
   try {
     const { sessionId, userId } = req.query;

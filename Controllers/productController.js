@@ -8,7 +8,8 @@ const slugify = require("slugify");
 const Category = require("../Models/categoryModel");
 const Subcategory = require("../Models/subCategoryModel");
 const QRCode = require("qrcode"); // ✅ ADD THIS
-const {cleanString} = require('../Utils/helpers')
+const {cleanString} = require('../Utils/helpers');
+const { pagination_ } = require("../Utils/pagination_");
 
 
 const generateProductUniqueId = async (
@@ -194,33 +195,36 @@ const bulkUploadProducts = async (req, res) => {
 // get all products
 const getAllProductsWithDetails = async (req, res) => {
   try {
-    const products = await Product.find().sort({ createdAt: -1 }).lean();
+    // Extract pagination parameters
+    const { page, limit, skip, hasPrevPage } = pagination_(req.query, {
+      defaultLimit: 10,
+      maxLimit: 20,
+    });
 
+    // Fetch paginated products and total count in parallel
+    const [products, totalRecords] = await Promise.all([
+      Product.find().sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+      Product.countDocuments(),
+    ]);
+
+    // Build final product response
     const finalProducts = await Promise.all(
       products.map(async (product) => {
         const category = await Category.findOne({
           category_id: product.category_id,
         });
+
         const subcategory = await Subcategory.findOne({
           Subcategory_id: product.Subcategory_id,
         });
 
-        // ✅ Fetch all pricing history for the product
-        const pricingRecords = await Pricing.find({
-          product_id: product.product_id,
-        });
+        const [pricingRecords, stockRecords, images] = await Promise.all([
+          Pricing.find({ product_id: product.product_id }),
+          ProductStock.find({ product_id: product.product_id }),
+          ProductImage.find({ product_id: product.product_id }),
+        ]);
 
-        // ✅ Fetch stock details for the product
-        const stockRecords = await ProductStock.find({
-          product_id: product.product_id,
-        });
-
-        // ✅ Fetch product images
-        const images = await ProductImage.find({
-          product_id: product.product_id,
-        });
-
-        // ✅ Extract latest pricing (only active price)
+        // Get active pricing
         const activePricing = pricingRecords.find((pricing) =>
           pricing.price_detail.some((price) => price.is_active === true)
         );
@@ -230,6 +234,7 @@ const getAllProductsWithDetails = async (req, res) => {
           const activePriceDetail = activePricing.price_detail.find(
             (price) => price.is_active === true
           );
+
           latestPricing = {
             _id: activePricing._id,
             price_id: activePricing.price_id,
@@ -243,12 +248,11 @@ const getAllProductsWithDetails = async (req, res) => {
                 activePriceDetail.original_price -
                 (activePriceDetail.original_price *
                   activePriceDetail.discount_percent) /
-                100,
+                  100,
               is_active: activePriceDetail.is_active,
               created_at: activePriceDetail.created_at,
               _id: activePriceDetail._id,
             },
-            __v: activePricing.__v,
             createdAt: activePricing.createdAt,
             updatedAt: activePricing.updatedAt,
           };
@@ -266,35 +270,34 @@ const getAllProductsWithDetails = async (req, res) => {
           featuredSection: product.featuredSection,
           attributes: product.attributes,
           seo: product.seo,
-          qrCode: product.qrCode ?? null, // ✅ Safe fallback to null
+          qrCode: product.qrCode ?? null,
           createdAt: product.createdAt,
           updatedAt: product.updatedAt,
+
           category: category
             ? {
-              category_id: category.category_id,
-              category_name: category.category_name,
-              category_description: category.category_description,
-              category_status: category.status,
-              createdAt: category.createdAt,
-              updatedAt: category.updatedAt,
-            }
+                category_id: category.category_id,
+                category_name: category.category_name,
+                category_description: category.category_description,
+                category_status: category.status,
+                createdAt: category.createdAt,
+                updatedAt: category.updatedAt,
+              }
             : null,
 
           subcategory: subcategory
             ? {
-              Subcategory_id: subcategory.Subcategory_id,
-              Subcategory_name: subcategory.Subcategory_name,
-              Subcategory_description: subcategory.Subcategory_description,
-              Subcategory_status: subcategory.status,
-              createdAt: subcategory.createdAt,
-              updatedAt: subcategory.updatedAt,
-            }
+                Subcategory_id: subcategory.Subcategory_id,
+                Subcategory_name: subcategory.Subcategory_name,
+                Subcategory_description: subcategory.Subcategory_description,
+                Subcategory_status: subcategory.status,
+                createdAt: subcategory.createdAt,
+                updatedAt: subcategory.updatedAt,
+              }
             : null,
 
-          // ✅ Updated Latest Pricing
           latest_pricing: latestPricing,
 
-          // ✅ Pricing History (All Records)
           pricing_history: pricingRecords.map((pricing) => ({
             price_id: pricing.price_id,
             currency: pricing.currency,
@@ -311,7 +314,6 @@ const getAllProductsWithDetails = async (req, res) => {
             })),
           })),
 
-          // ✅ Stock Details (All Vendors)
           stock_details: stockRecords.map((stock) => ({
             stock_id: stock.stock_id,
             size: stock.size,
@@ -320,12 +322,29 @@ const getAllProductsWithDetails = async (req, res) => {
             last_updated: stock.last_updated,
           })),
 
-          images: images,
+          images,
         };
       })
     );
 
-    res.status(200).json({ status: "1", success: true, data: finalProducts });
+    const totalPages = Math.ceil(totalRecords / limit);
+    const hasNextPage = page < totalPages;
+
+    res.status(200).json({
+      status: "1",
+      success: true,
+
+      pagination: {
+        page,
+        limit,
+        totalRecords,
+        totalPages,
+        hasPrevPage,
+        hasNextPage,
+      },
+
+      data: finalProducts,
+    });
   } catch (error) {
     res.status(500).json({
       status: "0",
@@ -335,6 +354,7 @@ const getAllProductsWithDetails = async (req, res) => {
     });
   }
 };
+
 
 // Get a single product by ID with all details
 const getOneProductWithDetails = async (req, res) => {
@@ -928,8 +948,22 @@ const filterProductDetails = async (req, res) => {
 // advanced filter side bar category and sub category
 const sideBarsProduct = async (req, res) => {
   try {
-    // Fetch all categories
-    const categories = await Category.find({ status: "Active" });
+    // Extract pagination values
+    const { page, limit, skip, hasPrevPage } = pagination_(req.query, {
+      defaultLimit: 10,
+      maxLimit: 20,
+    });
+
+    // Fetch paginated categories + total count
+    const [categories, totalRecords] = await Promise.all([
+      Category.find({ status: "Active" })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+
+      Category.countDocuments({ status: "Active" }),
+    ]);
 
     if (!categories.length) {
       return res.status(404).json({
@@ -938,10 +972,10 @@ const sideBarsProduct = async (req, res) => {
       });
     }
 
-    // Fetch all subcategories
-    const subcategories = await Subcategory.find({ status: "Active" });
+    // Fetch all subcategories once
+    const subcategories = await Subcategory.find({ status: "Active" }).lean();
 
-    // Merge categories with their respective subcategories
+    // Merge categories → their subcategories
     const mergedData = categories.map((category) => {
       const relatedSubcategories = subcategories.filter(
         (sub) => sub.category_id === category.category_id
@@ -957,11 +991,11 @@ const sideBarsProduct = async (req, res) => {
           updatedAt: sub.updatedAt,
         };
 
-        // Add gender field only if category name is "Ethnic Wear"
+        // Add gender only if category name is "Ethnic Wear"
         if (category.category_name === "Ethnic Wear") {
           return {
             ...baseData,
-            gender: sub.gender || null, // if gender not defined, return null
+            gender: sub.gender || null,
           };
         }
 
@@ -980,8 +1014,22 @@ const sideBarsProduct = async (req, res) => {
       };
     });
 
+    const totalPages = Math.ceil(totalRecords / limit);
+    const hasNextPage = page < totalPages;
+
+    // Response
     res.status(200).json({
       success: true,
+
+      pagination: {
+        page,
+        limit,
+        totalRecords,
+        totalPages,
+        hasPrevPage,
+        hasNextPage,
+      },
+
       data: mergedData,
     });
   } catch (error) {
@@ -989,6 +1037,7 @@ const sideBarsProduct = async (req, res) => {
       "Error fetching sidebar categories and subcategories:",
       error
     );
+
     res.status(500).json({
       success: false,
       message: "Server Error",

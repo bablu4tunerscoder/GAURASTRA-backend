@@ -1,4 +1,5 @@
 const Banner = require("../Models/bannerModel");
+const { pagination_ } = require("../Utils/pagination_");
 
 // ✅ Create Banner
 exports.createBanner = async (req, res) => {
@@ -56,10 +57,42 @@ exports.updateBanner = async (req, res) => {
 // ✅ Get All Banners
 exports.getAllBanners = async (req, res) => {
   try {
-    const banners = await Banner.find().sort({ createdAt: -1 }).lean();
-    res.status(200).json(banners);
+    const { page, limit, skip, hasPrevPage } = pagination_(req.query, {
+      defaultLimit: 10,
+      maxLimit: 20,
+    });
+
+    // ✅ parallel execution
+    const [banners, totalRecords] = await Promise.all([
+      Banner.find()
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+
+      Banner.countDocuments(),
+    ]);
+
+    const totalPages = Math.ceil(totalRecords / limit);
+    const hasNextPage = page < totalPages;
+
+    res.status(200).json({
+      pagination: {
+        page,
+        limit,
+        totalRecords,
+        totalPages,
+        hasPrevPage,
+        hasNextPage,
+      },
+      data: banners,
+    });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error("Get banners error:", err);
+    res.status(500).json({
+      message: "Server error while fetching banners",
+      error: err.message,
+    });
   }
 };
 
