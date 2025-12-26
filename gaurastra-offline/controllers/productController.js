@@ -4,7 +4,7 @@ const slugify = require("slugify").default;
 const { v4: uuidv4 } = require("uuid");
 const { upload_qr_image } = require("../utils/uploadImage");
 
-const { generateBarcode } = require("../utils/generateBarcod");
+const { generateQRCode } = require("../utils/generateBarcod");
 
 const variantSchema = Joi.object({
   color: Joi.string().required(),
@@ -61,18 +61,18 @@ exports.createProduct = async (req, res) => {
 
         variant.variant_unique_id = uuidv4();
 
-        const bcPayload = {
+        const qrPayload = {
           product_id: product_unique_id,
           variant_id: variant.variant_unique_id,
         };
 
-        const brString = JSON.stringify(bcPayload);
+        const qrString = JSON.stringify(qrPayload);
 
-        const brDataUrl = await generateBarcode(brString);
+        const grDataUrl = await generateQRCode(qrString);
 
-        const barcodeUpload  = await upload_qr_image(brDataUrl);
+        const qrUpload  = await upload_qr_image(grDataUrl);
 
-        variant.qrcode_url = barcodeUpload.url;
+        variant.qrcode_url = qrUpload.url;
       }
     }
 
@@ -249,18 +249,18 @@ exports.updateProduct = async (req, res) => {
         // -------------------------
         const newVariantId = uuidv4();
 
-        const bcPayload = {
+        const qrPayload = {
           product_id: product.unique_id,
           variant_id: newVariantId,
         };
 
       
 
-        const brString = JSON.stringify(bcPayload);
+        const qrString = JSON.stringify(qrPayload);
 
-        const brDataUrl = await generateBarcode(brString);
+        const grDataUrl = await generateBarcode(qrString);
 
-        const barcodeUpload  = await upload_qr_image(brDataUrl);
+        const qrUpload  = await upload_qr_image(grDataUrl);
 
         updatedVariants.push({
           variant_unique_id: newVariantId,
@@ -270,7 +270,7 @@ exports.updateProduct = async (req, res) => {
           actual_price: variantData.actual_price,
           offer: variantData.offer || 0,
           offer_type: variantData.offer_type || "none",
-          qrcode_url: barcodeUpload.url,
+          qrcode_url: qrUpload.url,
         });
       }
 

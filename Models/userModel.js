@@ -39,7 +39,7 @@ const userSchema = new mongoose.Schema(
         default: "Point"
       },
       coordinates: {
-        type: [Number], // [longitude, latitude]
+        type: [Number], 
         default: [0, 0]
       }
     },
@@ -61,8 +61,8 @@ const userSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["Active", "Inactive"],
-      default: "Active",
+      enum: ["Pending", "Active", "Inactive"],
+      default: "Pending",
       index: true
     },
 
@@ -70,6 +70,10 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "/Uploads/images/default.webp"
     },
+    otp: {
+      type: String,
+      default: null
+    }
   },
   { timestamps: true }
 );
