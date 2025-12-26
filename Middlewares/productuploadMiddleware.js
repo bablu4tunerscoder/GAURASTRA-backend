@@ -1,6 +1,6 @@
 // Middlewares/productuploadMiddleware.js
 const multer = require("multer");
-const { v4: uuidv4 } = require("uuid");
+
 const cloudinary = require("../Config/cloudinaryConfig");
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
 
@@ -32,11 +32,11 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-const upload = multer({ storage, fileFilter });
+const product_uploader = multer({ storage, fileFilter });
 
-// Return URL after upload (already handled by Cloudinary)
-const processMedia = async (file) => {
-  return file.path; // Cloudinary returns direct URL in `file.path`
+
+const product_media_processor = async (file) => {
+  return file.path; 
 };
 
-module.exports = { upload, processMedia };
+module.exports = {  product_uploader, product_media_processor };

@@ -1,105 +1,120 @@
-const { v4: uuidv4 } = require("uuid");
 const Product = require("../Models/ProductModel");
 const Discount = require("../Models/ProductDiscountModel");
 const Pricing = require("../Models/ProductPricingModel");
 const ProductStock = require("../Models/ProductStockModel");
 const { pagination_ } = require("../Utils/pagination_");
-// 1.==> For percentage, value is the discount percentage (e.g., 20 for 20% off).
-// {
-//     "discount_type": "percentage",
-//     "value": 20  // 20% discount
-//   }
 
-// 2.==> For flat, value is the exact amount (e.g., 500 for ₹500 off).
-// {
-//     "discount_type": "flat",
-//     "value": 500  // ₹500 discount
-//   }
 
-// 3.==> For bogo, value is how many free items you give (e.g., 1 for Buy 1 Get 1 Free).
-// {
-//     "discount_type": "bogo",
-//     "value": 1  // Buy 1, Get 1 Free
-//   }
-
-// create dicounts
 const createDiscount = async (req, res) => {
   try {
     const {
       product_id,
+      sku,
       discount_type,
       value,
+      bogo,
       start_date,
       end_date,
-      is_active,
+      is_active
     } = req.body;
 
-    // Check if product exists
-    const product = await Product.findOne({ product_id });
+    // 1️⃣ Product validation
+    if (!product_id) {
+      return res.status(400).json({
+        success: false,
+        message: "product_id is required"
+      });
+    }
+
+    const product = await Product.findById(product_id);
     if (!product) {
       return res.status(404).json({
-        status: "0",
         success: false,
-        message: "Product not found",
+        message: "Product not found"
       });
     }
 
-    // Validate discount type
+    // 2️⃣ Discount type validation
     if (!["percentage", "flat", "bogo"].includes(discount_type)) {
       return res.status(400).json({
-        status: "0",
         success: false,
-        message: "Invalid discount type",
+        message: "Invalid discount type"
       });
     }
 
-    // Create a new discount
-    const newDiscount = new Discount({
-      discount_id: uuidv4(),
+    // 3️⃣ Type based validation
+    if (discount_type === "percentage") {
+      if (value <= 0 || value > 100) {
+        return res.status(400).json({
+          success: false,
+          message: "Percentage discount must be between 1 and 100"
+        });
+      }
+    }
+
+    if (discount_type === "flat") {
+      if (value <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Flat discount must be greater than 0"
+        });
+      }
+    }
+
+    if (discount_type === "bogo") {
+      if (!bogo || !bogo.buy || !bogo.get) {
+        return res.status(400).json({
+          success: false,
+          message: "BOGO requires buy & get values"
+        });
+      }
+    }
+
+    // 4️⃣ Create Discount
+    const discount = await Discount.create({
       product_id,
+      sku,
       discount_type,
-      value,
+      value: discount_type === "bogo" ? undefined : value,
+      bogo: discount_type === "bogo" ? bogo : undefined,
       start_date,
       end_date,
-      is_active: is_active ?? true, // Default to true if not provided
+      is_active: is_active ?? true
     });
 
-    await newDiscount.save();
-
-    res.status(201).json({
-      status: "1",
+    return res.status(201).json({
       success: true,
       message: "Discount created successfully",
-      data: newDiscount,
+      data: discount
     });
+
   } catch (error) {
+    console.error("Create Discount Error:", error);
     res.status(500).json({
-      status: "0",
       success: false,
       message: "Server Error",
-      error: error.message,
+      error: error.message
     });
   }
 };
 
-// find all discount with product_id
+
 const findAllWithProductId = async (req, res) => {
   try {
     const { product_id } = req.params;
 
     if (!product_id) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Product ID is required" });
+      return res.status(400).json({
+        success: false,
+        message: "product_id is required"
+      });
     }
 
-    // Extract Pagination
     const { page, limit, skip, hasPrevPage } = pagination_(req.query, {
       defaultLimit: 10,
-      maxLimit: 20,
+      maxLimit: 20
     });
 
-    // Discounts + total count in parallel
     const [discounts, totalRecords] = await Promise.all([
       Discount.find({ product_id })
         .sort({ createdAt: -1 })
@@ -107,210 +122,113 @@ const findAllWithProductId = async (req, res) => {
         .limit(limit)
         .lean(),
 
-      Discount.countDocuments({ product_id }),
+      Discount.countDocuments({ product_id })
     ]);
 
     if (totalRecords === 0) {
       return res.status(404).json({
         success: false,
-        message: "No discounts found for this product",
+        message: "No discounts found for this product"
       });
     }
 
-    // Fetch product details
-    const product = await Product.findOne({ product_id });
-    if (!product) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Product not found" });
-    }
+    const product = await Product.findById(product_id).lean();
 
-    // Fetch pricing + stock info
     const [pricingRecords, stockRecords] = await Promise.all([
-      Pricing.find({ product_id }),
-      ProductStock.find({ product_id }),
+      Pricing.find({ product_id }).lean(),
+      ProductStock.find({ product_id }).lean()
     ]);
 
-    const response = {
-      product_details: {
-        product_id: product.product_id,
-        product_name: product.product_name,
-        description: product.description,
-        brand: product.brand,
-        category_id: product.category_id,
-        Subcategory_id: product.Subcategory_id,
-        status: product.status,
-        attributes: product.attributes,
-        seo: product.seo,
-        createdAt: product.createdAt,
-        updatedAt: product.updatedAt,
-      },
-
-      // Paginated Discounts
-      discounts: discounts.map((discount) => ({
-        discount_id: discount.discount_id,
-        discount_type: discount.discount_type,
-        value: discount.value,
-        start_date: discount.start_date,
-        end_date: discount.end_date,
-        is_active: discount.is_active,
-        createdAt: discount.createdAt,
-        updatedAt: discount.updatedAt,
-      })),
-
-      // Pricing History
-      pricing: pricingRecords.map((pricing) => ({
-        price_id: pricing.price_id,
-        currency: pricing.currency,
-        sku: pricing.sku,
-        price_history: pricing.price_detail.map((price) => ({
-          original_price: price.original_price,
-          discount_percent: price.discount_percent,
-          discounted_price:
-            price.original_price -
-            (price.original_price * price.discount_percent) / 100,
-          is_active: price.is_active,
-          created_at: price.created_at,
-        })),
-      })),
-
-      // Stock Details
-      stock_details: stockRecords.map((stock) => ({
-        stock_id: stock.stock_id,
-        stock_quantity: stock.stock_quantity,
-        is_available: stock.is_available,
-        last_updated: stock.last_updated,
-      })),
-    };
-
     const totalPages = Math.ceil(totalRecords / limit);
-    const hasNextPage = page < totalPages;
 
     return res.status(200).json({
       success: true,
-
       pagination: {
         page,
         limit,
         totalRecords,
         totalPages,
         hasPrevPage,
-        hasNextPage,
+        hasNextPage: page < totalPages
       },
+      data: {
+        product_details: product,
 
-      data: response,
+        discounts: discounts.map(d => ({
+          _id: d._id,
+          sku: d.sku,
+          discount_type: d.discount_type,
+          value: d.value,
+          bogo: d.bogo,
+          start_date: d.start_date,
+          end_date: d.end_date,
+          is_active: d.is_active,
+          createdAt: d.createdAt
+        })),
+
+        pricing: pricingRecords,
+        stock_details: stockRecords
+      }
     });
+
   } catch (error) {
-    console.error("Error fetching product details with discount:", error);
+    console.error("Find Discount By Product Error:", error);
     res.status(500).json({
       success: false,
       message: "Server Error",
-      error: error.message,
+      error: error.message
     });
   }
 };
 
 
-// find all discounts
 const findAllWithDiscounts = async (req, res) => {
   try {
-    // Fetch all products with discounts
-    const discounts = await Discount.find({});
+    const discounts = await Discount.find({}).lean();
 
-    if (discounts.length === 0) {
+    if (!discounts.length) {
       return res.status(404).json({
         success: false,
-        message: "No discounts found.",
+        message: "No discounts found"
       });
     }
 
-    // Collect all product_ids from the discounts
-    const productIds = discounts.map((discount) => discount.product_id);
+    const productIds = discounts.map(d => d.product_id);
 
-    // Fetch all related products
-    const products = await Product.find({ product_id: { $in: productIds } });
+    const [products, pricingRecords, stockRecords] = await Promise.all([
+      Product.find({ _id: { $in: productIds } }).lean(),
+      Pricing.find({ product_id: { $in: productIds } }).lean(),
+      ProductStock.find({ product_id: { $in: productIds } }).lean()
+    ]);
 
-    // Fetch all related pricing records
-    const pricingRecords = await Pricing.find({
-      product_id: { $in: productIds },
-    });
-
-    // Fetch all related stock records
-    const stockRecords = await ProductStock.find({
-      product_id: { $in: productIds },
-    });
-
-    // Map products with their corresponding discounts, pricing, and stock details
-    const response = products.map((product) => {
+    const response = products.map(product => {
       const productDiscounts = discounts.filter(
-        (discount) => discount.product_id === product.product_id
-      );
-
-      const productPricing = pricingRecords.filter(
-        (pricing) => pricing.product_id === product.product_id
-      );
-
-      const productStock = stockRecords.filter(
-        (stock) => stock.product_id === product.product_id
+        d => d.product_id.toString() === product._id.toString()
       );
 
       return {
-        product_details: {
-          product_id: product.product_id,
-          product_name: product.product_name,
-          description: product.description,
-          brand: product.brand,
-          category_id: product.category_id,
-          Subcategory_id: product.Subcategory_id,
-          status: product.status,
-          attributes: product.attributes,
-          seo: product.seo,
-          createdAt: product.createdAt,
-          updatedAt: product.updatedAt,
-        },
-
-        discounts: productDiscounts.map((discount) => ({
-          discount_id: discount.discount_id,
-          discount_type: discount.discount_type,
-          value: discount.value,
-          start_date: discount.start_date,
-          end_date: discount.end_date,
-          is_active: discount.is_active,
-          createdAt: discount.createdAt,
-          updatedAt: discount.updatedAt,
-        })),
-
-        pricing: productPricing.map((pricing) => ({
-          price_id: pricing.price_id,
-          currency: pricing.currency,
-          sku: pricing.sku,
-          price_history: pricing.price_detail.map((price) => ({
-            original_price: price.original_price,
-            discount_percent: price.discount_percent,
-            discounted_price:
-              price.original_price -
-              (price.original_price * price.discount_percent) / 100,
-            is_active: price.is_active,
-            created_at: price.created_at,
-          })),
-        })),
-
-        stock_details: productStock.map((stock) => ({
-          stock_id: stock.stock_id,
-          stock_quantity: stock.stock_quantity,
-          is_available: stock.is_available,
-          last_updated: stock.last_updated,
-        })),
+        product_details: product,
+        discounts: productDiscounts,
+        pricing: pricingRecords.filter(
+          p => p.product_id.toString() === product._id.toString()
+        ),
+        stock_details: stockRecords.filter(
+          s => s.product_id.toString() === product._id.toString()
+        )
       };
     });
 
-    res.status(200).json({ success: true, data: response });
+    res.status(200).json({
+      success: true,
+      data: response
+    });
+
   } catch (error) {
-    console.error("Error fetching all products with discounts:", error);
+    console.error("Find All Discounts Error:", error);
     res.status(500).json({
       success: false,
       message: "Server Error",
-      error: error.message,
+      error: error.message
     });
   }
 };
@@ -318,5 +236,5 @@ const findAllWithDiscounts = async (req, res) => {
 module.exports = {
   createDiscount,
   findAllWithProductId,
-  findAllWithDiscounts,
+  findAllWithDiscounts
 };

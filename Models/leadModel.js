@@ -23,11 +23,7 @@ const LeadSchema = new mongoose.Schema({
     required: true,
     index: true,
   },
-  backendCreatedAt: {
-    type: Date,
-    default: Date.now,
-    index: true,
-  },
+ 
   used: {
     type: Boolean,
     default: false, index: true,
@@ -43,4 +39,4 @@ const LeadSchema = new mongoose.Schema({
     timestamps: true
   });
 
-module.exports = mongoose.models.Lead || mongoose.model('Lead', LeadSchema);
+module.exports = mongoose.model('Lead', LeadSchema);

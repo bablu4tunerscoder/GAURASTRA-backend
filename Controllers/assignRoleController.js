@@ -17,7 +17,7 @@ exports.assignRole = async (req, res) => {
       return res.status(400).json({ message: "Invalid role" });
     }
 
-    const user = await User.findOne({ user_id });
+    const user = await User.findById(user_id);
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
@@ -58,7 +58,7 @@ exports.assignPermissions = async (req, res) => {
       return res.status(400).json({ message: "user_id and permissions required" });
     }
 
-    const user = await User.findOne({ user_id });
+    const user = await User.findById(user_id);
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });

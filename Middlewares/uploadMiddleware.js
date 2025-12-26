@@ -47,10 +47,10 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-const upload = multer({ storage, fileFilter });
+const uploader = multer({ storage, fileFilter });
 
 // Convert uploaded images to WebP
-const processImage = async (filePath) => {
+const image_processor = async (filePath) => {
   const ext = path.extname(filePath).toLowerCase();
 
   // If already webp, no need to convert — just return fixed path
@@ -72,6 +72,6 @@ const processImage = async (filePath) => {
 };
 
 module.exports = {
-  upload,
-  processImage,
+  uploader,
+  image_processor,
 };

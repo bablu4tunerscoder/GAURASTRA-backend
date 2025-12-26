@@ -8,7 +8,6 @@ const analyticsDataClient = new BetaAnalyticsDataClient({
   keyFilename: path.join(__dirname, "../Config/ga-service-account.json"),
 });
 
-
 exports.getGAOverview = async (req, res) => {
   try {
     const [report] = await analyticsDataClient.runReport({
@@ -38,7 +37,6 @@ exports.getGAOverview = async (req, res) => {
   }
 };
 
-
 exports.getGAEvents = async (req, res) => {
   try {
     const [report] = await analyticsDataClient.runReport({
@@ -56,7 +54,6 @@ exports.getGAEvents = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 
 exports.getUserActivity = async (req, res) => {
   try {

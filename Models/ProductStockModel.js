@@ -1,17 +1,43 @@
 const mongoose = require("mongoose");
-const { v4: uuidv4 } = require("uuid");
 
 const stockSchema = new mongoose.Schema(
   {
-    stock_id: { type: String, unique: true, required: true, default: uuidv4 },
-    product_id: { type: String, required: true, index:true },
-    size: { type: String, required: true }, // ✅ Size ko alag store karenge
-    stock_quantity: { type: Number, required: true }, // ✅ Har size ka stock
-    is_available: { type: Boolean, default: true, index:true},
-    last_updated: { type: Date, default: Date.now },
+    product_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Product",
+      required: true,
+      index: true
+    },
+
+    sku: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true
+    },
+
+    attributes: {
+      color: String,
+      size: String
+    },
+
+    stock_quantity: {
+      type: Number,
+      required: true
+    },
+
+    is_available: {
+      type: Boolean,
+      default: true,
+      index: true
+    },
+
+    last_updated: {
+      type: Date,
+      default: Date.now
+    }
   },
   { timestamps: true }
 );
 
-const ProductStock = mongoose.model("Product_Stock", stockSchema);
-module.exports = ProductStock;
+module.exports = mongoose.model("ProductStock", stockSchema);

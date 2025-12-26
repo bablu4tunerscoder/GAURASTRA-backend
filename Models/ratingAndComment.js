@@ -37,7 +37,7 @@ const ratingAndCommentSchema = new mongoose.Schema({
     }
 }, 
 {
-    timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' }
+    timestamps: true
 });
 
 ratingAndCommentSchema.index({ user_id: 1, product_id: 1 }, { unique: true });

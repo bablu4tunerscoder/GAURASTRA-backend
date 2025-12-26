@@ -7,7 +7,7 @@ const adminRoutes = require("./adminRoutes");
 const userRoutes = require("./userRoutes");
 const downloadRoutes = require("./downloadRoutes");
 const { uploadOfflineImage } = require("../controllers/imageController");
-const {upload} = require("../../Middlewares/uploadMiddleware");
+const {uploader} = require("../../Middlewares/uploadMiddleware");
 
 router.use("/products", productRoutes);
 router.use("/billing", billingRoutes);
@@ -16,6 +16,6 @@ router.use("/user", userRoutes);
 router.use("/download", downloadRoutes);
 
 
-router.post('/upload-image',upload.single("image"),uploadOfflineImage)
+router.post('/upload-image',uploader.single("image"),uploadOfflineImage)
 
 module.exports = router;

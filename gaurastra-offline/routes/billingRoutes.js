@@ -12,4 +12,9 @@ router.get("/:id", offlineAuthMiddleware, billingcontrollers.getBillingById);
 router.put("/:id",offlineAuthMiddleware, billingcontrollers.updateBilling);
 router.delete("/:id", offlineAuthMiddleware, billingcontrollers.deleteBilling);
 
+
+router.get("/a/get-billings-with-return-status", billingcontrollers.getUserLastBillingsWithReturnStatus);
+router.get("/w/get-billings-with-return-status", offlineAuthMiddleware, billingcontrollers.getUserLastBillingsWithReturnStatus);
+
+
 module.exports = router;

@@ -1,3 +1,5 @@
+
+
 const express = require("express");
 const dotenv = require("dotenv");
 const cors = require("cors");
@@ -25,6 +27,7 @@ const assignRoutes = require('./Routes/assignRoutes');
 const googleAnalyticsRoutes = require('./Routes/GoogleAnalyticsRoutes');
 
 const RootRoutesOffline = require('./gaurastra-offline/routes/root');
+const { home_get_controller } = require("./Controllers/HomeController");
 
 dotenv.config();
 connectDB();
@@ -117,8 +120,12 @@ app.use('/api/leads', leadRoutes);
 app.use('/api/rating', ratingRoutes);
 app.use("/api/assign/",assignRoutes );
 app.use("/api/ga/", googleAnalyticsRoutes);
+app.use("/api/home", home_get_controller);
 
 app.use("/api/offline", RootRoutesOffline);
+
+
+
 
 
 

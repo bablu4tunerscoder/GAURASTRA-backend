@@ -1,5 +1,6 @@
 const PublicCoupon = require("../Models/couponModelPublic");
 const { pagination_ } = require("../Utils/pagination_");
+const mongoose = require("mongoose");
 
 // ✅ Create Coupon
 
@@ -53,24 +54,32 @@ const getAllCoupons = async (req, res) => {
   try {
     const { page, limit, skip, hasPrevPage } = pagination_(req.query, {
       defaultLimit: 20,
-      maxLimit: 20,
+      maxLimit: 50,
     });
 
-    // ✅ parallel DB calls
+    const { status, code, discountType } = req.query;
+
+    // Build filter
+    const filter = {};
+    if (status) filter.status = status;
+    if (discountType) filter.discountType = discountType;
+    if (code) filter.code = { $regex: code, $options: "i" }; 
+
+    // Parallel DB calls
     const [coupons, totalRecords] = await Promise.all([
-      PublicCoupon.find()
+      PublicCoupon.find(filter)
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .lean(),
-
-      PublicCoupon.countDocuments(),
+      PublicCoupon.countDocuments(filter),
     ]);
 
     const totalPages = Math.ceil(totalRecords / limit);
     const hasNextPage = page < totalPages;
 
     res.status(200).json({
+      success: true,
       pagination: {
         page,
         limit,
@@ -84,90 +93,158 @@ const getAllCoupons = async (req, res) => {
   } catch (err) {
     console.error("Get all coupons error:", err);
     res.status(500).json({
+      success: false,
       message: "Server error while fetching coupons",
       error: err.message,
     });
   }
 };
 
-// ✅ Get Single Coupon by ID
+
+// ✅ Get Single Coupon by IDA
 const getCouponById = async (req, res) => {
   try {
-    const coupon = await PublicCoupon.findOne({ coupon_id: req.params.id });
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({ message: "Invalid coupon ID" });
+    }
+
+    const coupon = await PublicCoupon.findById(id)
+      .populate({
+        path: "usedBy.user",
+        select: "name email", 
+      })
+      .lean();
+
     if (!coupon) {
       return res.status(404).json({ message: "Coupon not found" });
     }
-    res.status(200).json(coupon);
+
+    res.status(200).json({
+      success: true,
+      data: coupon,
+    });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Error fetching coupon:", err);
+    res.status(500).json({ success: false, error: err.message });
   }
 };
+
 
 // ✅ Update Coupon
 const updateCoupon = async (req, res) => {
   try {
-    const coupon = await PublicCoupon.findOneAndUpdate(
-      { coupon_id: req.params.id },
-      req.body,
-      { new: true }
-    );
+    const { id } = req.params;
+    const updateData = { ...req.body };
+
+    // If code is being updated, normalize
+    if (updateData.code) {
+      updateData.code = updateData.code.toUpperCase().trim();
+    }
+
+    // Validate discountType
+    if (updateData.discountType && !["flat", "percentage"].includes(updateData.discountType)) {
+      return res.status(400).json({ message: "Invalid discountType. Must be 'flat' or 'percentage'." });
+    }
+
+    // Validate status
+    if (updateData.status && !["Active", "Inactive", "Expired"].includes(updateData.status)) {
+      return res.status(400).json({ message: "Invalid status value." });
+    }
+
+    const coupon = await PublicCoupon.findByIdAndUpdate(id, updateData, { new: true }).lean();
+
     if (!coupon) {
       return res.status(404).json({ message: "Coupon not found" });
     }
-    res.status(200).json({ message: "Coupon updated", coupon });
+
+    res.status(200).json({ success: true, message: "Coupon updated", data: coupon });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Error updating coupon:", err);
+    res.status(500).json({ success: false, error: err.message });
   }
 };
+
 
 
 // ✅ Delete Coupon
 const deleteCoupon = async (req, res) => {
   try {
-    const deleted = await PublicCoupon.findOneAndDelete({
-      coupon_id: req.params.id,
-    });
-    if (!deleted) {
-      return res.status(404).json({ message: "Coupon not found" });
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({ message: "Invalid coupon ID." });
     }
-    res.status(200).json({ message: "Coupon deleted" });
+
+    const deleted = await PublicCoupon.findByIdAndDelete(id).lean();
+
+    if (!deleted) {
+      return res.status(404).json({ message: "Coupon not found." });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Coupon deleted successfully.",
+      data: {
+        _id: deleted._id,
+        code: deleted.code,
+        status: deleted.status,
+        usageCount: deleted.usageCount,
+      },
+    });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Error deleting coupon:", err);
+    res.status(500).json({ success: false, error: err.message });
   }
 };
-
 
 
 const removeUserFromCoupon = async (req, res) => {
   try {
     const { coupon_id, user_id } = req.body;
 
-    const coupon = await PublicCoupon.findOne({ coupon_id });
+    if (!coupon_id || !user_id) {
+      return res.status(400).json({ message: "coupon_id and user_id are required." });
+    }
+
+  
+    const couponIdObj = coupon_id;
+    const userIdObj = user_id;
+
+    const coupon = await PublicCoupon.findById(couponIdObj);
     if (!coupon) {
       return res.status(404).json({ message: "Coupon not found" });
     }
 
-    const used = coupon.usedBy.some(
-      (u) => u.user.toString() === user_id
-    );
-
+    const used = coupon.usedBy.some(u => u.user.toString() === userIdObj.toString());
     if (!used) {
-      return res.status(400).json({ message: "User never used this coupon" });
+      return res.status(400).json({ message: "User never used this coupon." });
     }
 
-    await Coupon.updateOne(
-      { coupon_id },
+    await PublicCoupon.updateOne(
+      { _id: couponIdObj },
       {
-        $pull: { usedBy: { user: user_id } },
+        $pull: { usedBy: { user: userIdObj } },
         $inc: { usageCount: -1 },
       }
     );
 
-    res.status(200).json({ message: "User removed from coupon usage" });
+    // Ensure usageCount is not negative
+    if (coupon.usageCount - 1 < 0) {
+      await PublicCoupon.updateOne(
+        { _id: couponIdObj },
+        { $set: { usageCount: 0 } }
+      );
+    }
+
+    res.status(200).json({ success: true, message: "User removed from coupon usage" });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Error removing user from coupon:", err);
+    res.status(500).json({ success: false, error: err.message });
   }
 };
+
 
 module.exports = {
   createCoupon,

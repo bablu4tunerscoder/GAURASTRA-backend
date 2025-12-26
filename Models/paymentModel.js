@@ -1,28 +1,79 @@
 const mongoose = require("mongoose");
-const { v4: uuidv4 } = require("uuid");
 
 const paymentSchema = new mongoose.Schema(
   {
-    payment_id: { type: String, unique: true, required: true, default: uuidv4 },
-    order_id: { type: String, required: true,index: true }, // Simple string reference
-    amount: { type: Number, required: true },
-    currency: { type: String, default: "INR" },
-    payment_gateway: { type: String, default: "PhonePe" },
-    merchant_transaction_id: { type: String, required: true, unique: true },
-    transaction_id: { type: String, index: true },
-    payment_mode: {
-      type: String,
+    /* 🔗 Order Reference */
+    order: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Order",
+      required: true,
+      index: true
     },
-    payment_status: {
-      type: String,
-    },
-    failure_reason: { type: String },
 
-    gateway_response: { type: mongoose.Schema.Types.Mixed },
-    phonepe_payment_url: { type: String },
+    /* 💰 Amount Info */
+    amount: {
+      type: Number,
+      required: true
+    },
+
+    currency: {
+      type: String,
+      default: "INR"
+    },
+
+    /* 💳 Gateway Info */
+    paymentGateway: {
+      type: String,
+      default: "PhonePe",
+      index: true
+    },
+
+    merchantTransactionId: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true
+    },
+
+    gatewayTransactionId: {
+      type: String,
+      index: true
+    },
+
+    paymentMode: {
+      type: String
+    },
+
+    paymentStatus: {
+      type: String,
+      enum: ["Initiated", "Pending", "Success", "Failed"],
+      default: "Initiated",
+      index: true
+    },
+
+    failureReason: {
+      type: String
+    },
+    refunds:[{
+      merchantRefundId: String,
+      refundId: String,
+      amount: Number,
+      status: String,
+      timestamp: Date
+    }],
+
+    /* 📦 Raw Gateway Data */
+    gatewayResponse: {
+      type: mongoose.Schema.Types.Mixed
+    },
+
+    phonepePaymentUrl: {
+      type: String
+    },
+
     callbacks: {
-      success: { type: String },
-      failure: { type: String }
+      success: String,
+      failure: String
     }
   },
   { timestamps: true }

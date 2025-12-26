@@ -15,7 +15,7 @@ const { authCheck, permissionCheck } = require("../Utils/JWTAuth");
 router.post("/addBulk-products", authCheck, permissionCheck('product'), ProductController.bulkUploadProducts);
 router.get("/ProductDetail",  ProductController.getAllProductsWithDetails);
 router.get("/product/:product_id", ProductController.getOneProductWithDetails);
-router.put("/update-products/:product_id", authCheck, permissionCheck('product'), ProductController.updateProducts);
+router.put("/update-products/:product_id", authCheck, permissionCheck('product'), ProductController.updateSingleProduct);
 router.delete(
   "/delete-products/:product_id", authCheck, permissionCheck('product'),
   ProductController.deleteProductsByID
@@ -28,8 +28,8 @@ router.put(
 );
 
 router.get(
-  "/by-canonical/:canonicalURL",
-  ProductController.getDataWithCanonicalurls
+  "/by-slug/:slug",
+  ProductController.getOneProductWithDetailsBySlug
 );
 
 router.get(
@@ -38,13 +38,15 @@ router.get(
 );
 
 router.get(
-  "/by-unique/:productUniqueId",
-  ProductController.getDataWithUniqueId
+  "/by-unique/:productSkuCode",
+  ProductController.getDataWithSkuCode
 );
 
 // product filter routes
-router.post("/filter-Products", ProductController.filterProductDetails);
-router.get("/product-sidebar", ProductController.sideBarsProduct);
+router.post("/product-page-filter", ProductController.filterProductDetails);
+router.get("/product-page-sidebar", ProductController.productPageSideBars);
+
+
 
 // Discount Crud oprations routes
 router.post("/create-discount", DiscountController.createDiscount);
@@ -54,9 +56,15 @@ router.get(
 );
 router.get("/getAllDiscounts",  DiscountController.findAllWithDiscounts);
 
+
+
+
+
 // images modules routes
-const { upload } = require("../Middlewares/productuploadMiddleware");
-router.post("/Productmedia", upload.array("media", 20),authCheck, uploadProductMedia);
+const { product_uploader } = require("../Middlewares/productUploadMiddleware");
+
+
+router.post("/Productmedia", product_uploader.array("media", 20),authCheck, uploadProductMedia);
 router.get("/getAllImagesIDS/:product_id", productIdByImages);
 router.delete("/delete-image/:image_id",authCheck, imagesDelete);
 

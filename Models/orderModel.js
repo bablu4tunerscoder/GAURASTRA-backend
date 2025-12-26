@@ -1,88 +1,127 @@
 const mongoose = require("mongoose");
-const { v4: uuidv4 } = require("uuid");
 
 const orderSchema = new mongoose.Schema(
   {
-    order_id: { type: String, unique: true, required: true, default: uuidv4 },
-
+    /* 🔗 User Reference + Snapshot */
     user: {
-      user_id: { type: String, required: true, index: true },
-      name: { type: String, required: true },
-      email: { type: String, required: true },
-      phone: { type: String, required: true },
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true
     },
 
-    delivery_address: {
-      full_name: { type: String, required: true },
+    userSnapshot: {
+      name: String,
+      email: String,
+      phone: String
+    },
+
+    /* 🚚 Delivery Address Snapshot */
+    deliveryAddress: {
+      fullName: { type: String, required: true },
       phone: { type: String, required: true },
       street: { type: String, required: true },
-      landmark: { type: String },
+      landmark: String,
       city: { type: String, required: true },
       state: { type: String, required: true },
       pincode: { type: String, required: true },
-      flat_number: { type: String },
+      flatNumber: String,
     },
 
+    /* 🛒 Ordered Products (Multiple allowed) */
     products: [
       {
-        product_id: { type: String, required: true, index: true },
-        name: { type: String, required: true },
-        price: { type: Number, required: true },
-        quantity: { type: Number, required: true, default: 1 },
-        total_price: { type: Number, required: true },
-        size: { type: String, required: true },
+        product: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Product",
+          required: true,
+          index: true,
+        },
+
+        sku: {
+          type: String,
+          required: true,
+          index: true,
+        },
+
+        snapshot: {
+          name: String,
+          price: Number,
+          size: String,
+          color: String,
+        },
+
+        quantity: {
+          type: Number,
+          required: true,
+          min: 1,
+        },
+
+        totalPrice: {
+          type: Number,
+          required: true,
+        },
       },
     ],
 
-    total_order_amount: { type: Number, required: true },
-    currency: { type: String, default: "INR" },
 
-    payment_id: { type: String }, // old
+    totalOrderAmount: {
+      type: Number,
+      required: true
+    },
+
+    currency: {
+      type: String,
+      default: "INR"
+    },
+
+    /* 💳 Payment */
     payment: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Payment",
+      default: null
     },
 
-    // 👇 NEW FIELD for payment tracking
-    payment_status: {
-  type: String,
-  enum: ["Enquiry", "Pending", "Paid", "Failed"],
-  default: "Enquiry",
-},
+    paymentStatus: {
+      type: String,
+      enum: ["Enquiry", "Pending", "Paid", "Failed"],
+      default: "Enquiry",
+      index: true
+    },
 
-
-    // Order lifecycle (delivery/shipping)
-    order_status: {
+    /* 📦 Order Lifecycle */
+    orderStatus: {
       type: String,
       enum: [
         "Pending",
         "Confirmed",
+        "Dispatched",
         "Shipped",
         "Delivered",
-        "Cancelled",
-        "Dispatched",
+        "Cancelled"
       ],
       default: "Pending",
       index: true
     },
 
-    status_history: [
+    statusHistory: [
       {
-        status: { type: String },
-        changed_at: { type: Date, default: Date.now },
-        notes: { type: String },
-      },
+        status: String,
+        changedAt: { type: Date, default: Date.now },
+        notes: String
+      }
     ],
+    
   },
   { timestamps: true }
 );
 
-// Add status to history when order status changes
+
 orderSchema.pre("save", function (next) {
-  if (this.isModified("order_status")) {
-    this.status_history.push({
-      status: this.order_status,
-      notes: `Status changed to ${this.order_status}`,
+  if (this.isModified("orderStatus")) {
+    this.statusHistory.push({
+      status: this.orderStatus,
+      notes: `Status changed to ${this.orderStatus}`,
     });
   }
   next();

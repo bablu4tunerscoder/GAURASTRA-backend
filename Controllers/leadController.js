@@ -1,6 +1,6 @@
-const Lead = require('../Models/lead.model');
-const Coupon = require('../Models/couponModelUser'); 
-const { v4: uuidv4 } = require('uuid');
+const LeadModel = require('../Models/leadModel');
+const UserCoupon = require('../Models/couponModelUser'); 
+
 const moment = require('moment'); 
 const { pagination_ } = require('../Utils/pagination_');
 
@@ -21,65 +21,67 @@ exports.subscribeLead = async (req, res) => {
     }
 
     /* ----------- Check existing lead ----------- */
-    const existingLead = await Lead.findOne({ mobile });
-
-    console.log("existingLead",existingLead);
+   const existingLead = await LeadModel.findOne({ mobile }).lean();
 
     if (existingLead) {
-      const coupon = await Coupon.findOne({
-        mobileNumber: existingLead.mobile,
+      /* ---- Step 2: Check existing active coupon ---- */
+      const existingCoupon = await UserCoupon.findOne({
+        mobileNumber: mobile,
         status: "Active",
         expiresAt: { $gt: new Date() },
-      });
+      }).lean();
 
-
-      console.log("coupon",coupon);
-
-      if (coupon) {
+      if (existingCoupon) {
         return res.status(200).json({
           success: true,
           message: "Coupon already generated",
-          couponCode: existingLead.couponCode,
+          couponCode: existingCoupon.code,
+          expiresAt: existingCoupon.expiresAt,
         });
       }
     }
 
+
+  
     const cleanName = name.trim().replace(/[^a-zA-Z]/g, "").toUpperCase() || "GAURASTRA";
     
     const couponCode = `${cleanName}100`;
 
-    const backendCreatedAt = new Date();
-    const expiryDate = new Date(backendCreatedAt);
-    expiryDate.setDate(expiryDate.getDate() + 90);
+
+    const createAt = new Date();
+
+    let expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 90);
+
+
+  await LeadModel.create({
+      name: name.trim(),
+      mobile,
+      couponCode,
+      couponExpiresAt: expiresAt,
+      used: false,
+    });
 
   
-    await Coupon.create({
+    await UserCoupon.create({
       mobileNumber: mobile,
       name: name.trim(),
       code: couponCode,
       discountType: "flat",
       discountValue: 100,
       minCartAmount: 400,
-      expiresAt: expiryDate,
       status: "Active",
-      backendCreatedAt,
+      expiresAt,
     });
 
-    await Lead.create({
-      name: name.trim(),
-      mobile,
-      couponCode,
-      couponExpiresAt: expiryDate,
-      backendCreatedAt,
-    });
-
+    
     res.status(201).json({
       success: true,
       couponCode,
-      createdAt: moment(backendCreatedAt).format("DD/MM/YYYY hh:mm A"),
-      createdAgo: moment(backendCreatedAt).fromNow(),
-      expiresAt: moment(expiryDate).format("DD/MM/YYYY hh:mm A"),
-      expiresAgo: moment(expiryDate).fromNow(),
+      createdAt: moment(createAt).format("DD/MM/YYYY hh:mm A"),
+      createdAgo: moment(createAt).fromNow(),
+      expiresAt: moment(expiresAt).format("DD/MM/YYYY hh:mm A"),
+      expiresAgo: moment(expiresAt).fromNow(),
     });
   } catch (error) {
     console.error("Lead/Coupon creation error:", error);
@@ -89,7 +91,6 @@ exports.subscribeLead = async (req, res) => {
 
 exports.getAllLeads = async (req, res) => {
   try {
-    // Pagination extract
     const { page, limit, skip, hasPrevPage } = pagination_(req.query, {
       defaultLimit: 10,
       maxLimit: 20,
@@ -97,25 +98,31 @@ exports.getAllLeads = async (req, res) => {
 
     // Parallel DB calls
     const [leads, totalRecords] = await Promise.all([
-      Lead.find()
+      LeadModel.find()
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .lean(),
 
-      Lead.countDocuments(),
+      LeadModel.countDocuments(),
     ]);
 
-    // Format timestamps
+    // Format data safely
     const formattedLeads = leads.map((lead) => ({
       ...lead,
-      formattedCreatedAt: moment(lead.backendCreatedAt).format(
+
+      createdAtFormatted: moment(lead.createdAt).format(
         "DD/MM/YYYY hh:mm A"
       ),
-      formattedExpiry: lead.couponCode
-        ? moment(lead.expiresAt).format("DD/MM/YYYY hh:mm A")
+      createdAgo: moment(lead.createdAt).fromNow(),
+
+      couponExpiresAtFormatted: lead.couponExpiresAt
+        ? moment(lead.couponExpiresAt).format("DD/MM/YYYY hh:mm A")
         : null,
-      expiryAgo: lead.couponCode ? moment(lead.expiresAt).fromNow() : null,
+
+      expiryAgo: lead.couponExpiresAt
+        ? moment(lead.couponExpiresAt).fromNow()
+        : null,
     }));
 
     const totalPages = Math.ceil(totalRecords / limit);
@@ -140,4 +147,5 @@ exports.getAllLeads = async (req, res) => {
     res.status(500).json({ message: "Server Error" });
   }
 };
+
 

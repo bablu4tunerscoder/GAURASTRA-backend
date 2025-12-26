@@ -20,9 +20,9 @@ const storage = multer.diskStorage({
   },
 });
 
-const upload = multer({ storage });
+const landing_image_uploader = multer({ storage });
 
-const convertToWebp = async (req, res, next) => {
+const convert_to_webp = async (req, res, next) => {
   if (!req.files) return next();
 
   const convertedFiles = [];
@@ -48,4 +48,4 @@ const convertToWebp = async (req, res, next) => {
   next();
 };
 
-module.exports = { upload, convertToWebp };
+module.exports = { landing_image_uploader, convert_to_webp };

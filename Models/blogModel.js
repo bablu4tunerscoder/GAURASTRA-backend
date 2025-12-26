@@ -1,63 +1,47 @@
 const mongoose = require("mongoose");
+
 const blogSchema = new mongoose.Schema(
   {
-    blog_id: {
-      type: Number,
-      unique: true,
-    },
-    blog_title: {
-      type: String,
-      required: true,
-    },
-    blog_content: {
-      type: String,
-      required: true,
-    },
-    blog_status: {
+    title: { type: String, required: true, index: true },
+    content: { type: String, required: true },
+
+    status: {
       type: String,
       enum: ["Draft", "Published"],
       default: "Draft",
       index: true,
     },
-    blog_published: {
-      type: String,
-      required: true,
-    },
+
+    publishedAt: { type: Date },
+
     thumbnail: {
-      public_id: {
-        type: String,
-      },
-      secure_url: {
-        type: String,
-      },
+      public_id: String,
+      secure_url: String
     },
-    blog_slug: {
-      type: String,
-      required: true,
-    },
+
+    slug: { type: String, required: true, unique: true, index: true },
+
     author: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
       required: true,
-      index: true,
+      index: true
     },
+    authorInfo: {
+      name: String,
+      email: String
+    },
+
     seo: {
-      page_title: {
-        type: String,
-      },
-      meta_keywords: {
-        type: Array,
-        default: [],
-      },
-      meta_description: {
-        type: String,
-      },
-    },
+      page_title: String,
+      meta_keywords: { type: [String], default: [] },
+      meta_description: String
+    }
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
+// Latest blogs first
 blogSchema.index({ createdAt: -1 });
 
-module.exports = mongoose.model("PostBlogs", blogSchema);
+module.exports = mongoose.model("BlogPost", blogSchema);

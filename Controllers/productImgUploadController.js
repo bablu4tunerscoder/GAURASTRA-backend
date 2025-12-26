@@ -1,8 +1,4 @@
-const {
-  processImage,
-  processVideo,
-  processMedia,
-} = require("../Middlewares/productuploadMiddleware");
+
 const Images = require("../Models/ProductImgModel");
 
 const uploadProductMedia = async (req, res) => {
@@ -11,7 +7,7 @@ const uploadProductMedia = async (req, res) => {
       return res.status(400).json({ message: "No files uploaded" });
     }
 
-    const mediaUrls = req.files.map((file) => file.path); // Cloudinary URL
+    const mediaUrls = req.files.map((file) => file.path); 
 
     res.status(201).json({
       message: "Media uploaded successfully",

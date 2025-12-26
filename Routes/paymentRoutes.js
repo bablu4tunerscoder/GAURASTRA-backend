@@ -1,7 +1,7 @@
 // Routes/paymentRoutes.js
 const express = require("express");
 const router = express.Router();
-const paymentController = require("../Controllers/payment.controller");
+const paymentController = require("../Controllers/paymentController");
 const { authCheck, permissionCheck } = require("../Utils/JWTAuth");
 
 // --- Health (quick sanity check) ---

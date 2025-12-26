@@ -37,6 +37,9 @@ Thumbs.db
 # Typescript
 *.tsbuildinfo
 
+# jsconfig 
+jsconfig.json
+
 Config/serviceAccountKey.json
 Config/serviceAccountKeyProd.json
 Config/ga-service-account.json

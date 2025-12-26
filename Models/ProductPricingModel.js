@@ -1,26 +1,36 @@
 const mongoose = require("mongoose");
-const { v4: uuidv4 } = require("uuid");
 
 const pricingSchema = new mongoose.Schema(
   {
-    price_id: { type: String, unique: true, required: true, default: uuidv4 },
-    product_id: { type: String, required: true , index:true},
-    currency: { type: String, default: "INR" },
-    sku: { type: String, required: true, unique: true }, // Unique Stock Unit Identifier
+    product_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Product",
+      required: true,
+      index: true
+    },
 
-    price_detail: [
-      {
-        original_price: { type: Number, required: true },
-        discounted_price: { type: Number },
-        discount_percent: { type: Number, default: 0 }, // e.g., 10% off
-        is_active: { type: Boolean, default: true,index:true }, // Active price flag
-        variant: { type: String }, // Variant (e.g., "Red, XL")
-        created_at: { type: Date, default: Date.now },
-      },
-    ],
+    sku: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true
+    },
+
+    variant_attributes: {
+      color: String,
+      size: String
+    },
+
+    currency: { type: String, default: "INR" },
+
+    original_price: { type: Number, required: true },
+    discounted_price: { type: Number },
+    discount_percent: { type: Number },
+    
+
+    is_active: { type: Boolean, default: true }
   },
   { timestamps: true }
 );
 
-const Pricing = mongoose.model("Product_Pricing", pricingSchema);
-module.exports = Pricing;
+module.exports = mongoose.model("Product_Pricing", pricingSchema);

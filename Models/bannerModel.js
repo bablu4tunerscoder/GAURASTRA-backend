@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 const bannerSchema = new mongoose.Schema(
   {
-    image: {
+    imageUrl: {
       type: String,
       required: true,
     },
@@ -12,6 +12,11 @@ const bannerSchema = new mongoose.Schema(
     redirectURL: {
       type: String,
     },
+    priority: {
+      type: Number,
+      default: 0,
+      index: true
+    }
   },
   {
     timestamps: true,

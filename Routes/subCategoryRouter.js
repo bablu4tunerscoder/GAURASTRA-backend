@@ -11,6 +11,6 @@ router.put("/update/:id", authCheck, permissionCheck('category'), subcategoryCon
 router.delete("/delete/:id", authCheck, permissionCheck('category'), subcategoryController.deleteSubCategory);
 router.get(
   "/subcategories-by-category/:category_id",
-  subcategoryController.findSubCategorywithcategoryID
+  subcategoryController.findSubCategoryByCategoryId
 );
 module.exports = router;

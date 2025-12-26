@@ -83,8 +83,6 @@ exports.calculateBilling = async (req, res) => {
   }
 };
 
-
-
 // ---------------------------
 // CREATE BILLING
 // ---------------------------
@@ -283,6 +281,7 @@ exports.updateBilling = async (req, res) => {
 // ---------------------------
 // DELETE BILLING
 // ---------------------------
+
 exports.deleteBilling = async (req, res) => {
   try {
     const deleted = await OfflineBilling.findByIdAndDelete(req.params.id);
@@ -302,3 +301,80 @@ exports.deleteBilling = async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 };
+
+
+exports.getUserLastBillingsWithReturnStatus = async (req, res) => {
+  try {
+    const { phone, full_name, date } = req.query;
+
+    // 🔐 Validation
+    if (!phone) {
+      return res.status(400).json({
+        success: false,
+        message: "phone is required",
+      });
+    }
+
+    // 🔎 Base query
+    let query = {
+      "user_info.phone": phone,
+    };
+
+    // ➕ Optional name filter
+    if (full_name) {
+      query["user_info.full_name"] = new RegExp(full_name, "i");
+    }
+
+    // ➕ Optional date filter
+    if (date) {
+      const start = new Date(date);
+      start.setHours(0, 0, 0, 0);
+
+      const end = new Date(date);
+      end.setHours(23, 59, 59, 999);
+
+      query.createdAt = { $gte: start, $lte: end };
+    }
+
+    // 📦 Fetch LAST 5 billings (latest first)
+    const billings = await OfflineBilling.find(query)
+      .sort({ createdAt: -1 })
+      .limit(5);
+
+    if (!billings.length) {
+      return res.status(404).json({
+        success: false,
+        message: "No billing records found",
+      });
+    }
+
+    // ⏱️ 7-day return logic
+    const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+
+    const result = billings.map((bill) => {
+      const billTime = new Date(bill.createdAt).getTime();
+      const diff = now - billTime;
+
+      return {
+        ...bill.toObject(),
+        returnable: diff <= SEVEN_DAYS,
+        days_passed: Math.floor(diff / (24 * 60 * 60 * 1000)),
+      };
+    });
+
+    // ✅ Response
+    res.status(200).json({
+      success: true,
+      count: result.length,
+      data: result,
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
+};
+

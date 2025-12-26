@@ -1,10 +1,10 @@
 const Product = require("../models/product");
 const Joi = require("joi");
-const slugify = require("slugify");
+const slugify = require("slugify").default;
 const { v4: uuidv4 } = require("uuid");
 const { upload_qr_image } = require("../utils/uploadImage");
-const QRCode = require("qrcode");
-const { validateToken } = require("../utils/jwt");
+
+const { generateBarcode } = require("../utils/generateBarcod");
 
 const variantSchema = Joi.object({
   color: Joi.string().required(),
@@ -61,18 +61,18 @@ exports.createProduct = async (req, res) => {
 
         variant.variant_unique_id = uuidv4();
 
-        const qrPayload = {
+        const bcPayload = {
           product_id: product_unique_id,
           variant_id: variant.variant_unique_id,
         };
 
-        const qrString = JSON.stringify(qrPayload);
+        const brString = JSON.stringify(bcPayload);
 
-        const qrDataUrl = await QRCode.toDataURL(qrString);
+        const brDataUrl = await generateBarcode(brString);
 
-        const qrUpload = await upload_qr_image(qrDataUrl);
+        const barcodeUpload  = await upload_qr_image(brDataUrl);
 
-        variant.qrcode_url = qrUpload.url;
+        variant.qrcode_url = barcodeUpload.url;
       }
     }
 
@@ -249,15 +249,18 @@ exports.updateProduct = async (req, res) => {
         // -------------------------
         const newVariantId = uuidv4();
 
-        const qrPayload = {
+        const bcPayload = {
           product_id: product.unique_id,
           variant_id: newVariantId,
         };
 
-        const qrString = JSON.stringify(qrPayload);
+      
 
-        const qrDataUrl = await QRCode.toDataURL(qrString);
-        const qrUpload = await upload_qr_image(qrDataUrl);
+        const brString = JSON.stringify(bcPayload);
+
+        const brDataUrl = await generateBarcode(brString);
+
+        const barcodeUpload  = await upload_qr_image(brDataUrl);
 
         updatedVariants.push({
           variant_unique_id: newVariantId,
@@ -267,7 +270,7 @@ exports.updateProduct = async (req, res) => {
           actual_price: variantData.actual_price,
           offer: variantData.offer || 0,
           offer_type: variantData.offer_type || "none",
-          qrcode_url: qrUpload.url,
+          qrcode_url: barcodeUpload.url,
         });
       }
 

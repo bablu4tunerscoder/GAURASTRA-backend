@@ -4,7 +4,9 @@ const PublicCoupon = require("../Models/couponModelPublic");
 
 const suggestCoupons = async (req, res) => {
   try {
-    const { product_id, cartAmount, user } = req.body;
+    const { product_id, cartAmount } = req.body;
+
+    const user = req.user;
 
     const mobileNumber = user ? user.phone : null;
 
@@ -13,10 +15,6 @@ const suggestCoupons = async (req, res) => {
         message: "product_id and cartAmount are required",
       });
     }
-
-    /* ===============================
-       1️⃣ FETCH PUBLIC COUPONS
-    =============================== */
 
     const publicCoupons = await PublicCoupon.find({
       status: "Active",
@@ -88,18 +86,19 @@ const suggestCoupons = async (req, res) => {
 
 const applyCoupon = async (req, res) => {
   try {
-    const { code, user, product_id, cartAmount } = req.body;
+    const { code, product_id, cartAmount } = req.body;
+
+    const user = req.user;
 
     const user_id = user.userid;
 
-    if (!code  || !cartAmount) {
+    if (!code || !cartAmount) {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
-
     const userCoupon = await UserCoupon.findOne({
       code,
-      mobileNumber:user.phone,
+      mobileNumber: user.phone,
     });
 
     if (userCoupon) {
@@ -121,9 +120,9 @@ const applyCoupon = async (req, res) => {
       const discountAmount =
         userCoupon.discountType === "percentage"
           ? Math.min(
-              (cartAmount * userCoupon.discountValue) / 100,
-              cartAmount
-            )
+            (cartAmount * userCoupon.discountValue) / 100,
+            cartAmount
+          )
           : Math.min(userCoupon.discountValue, cartAmount);
 
       // ✅ Mark used

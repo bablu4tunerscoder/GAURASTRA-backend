@@ -36,10 +36,10 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-const upload = multer({ storage, fileFilter });
+const payment_image_uploader = multer({ storage, fileFilter });
 
 // Convert uploaded images to WebP and compress
-const processImage = async (filePath) => {
+const payment_image_processor = async (filePath) => {
   const webpPath = filePath.replace(path.extname(filePath), ".webp");
 
   await sharp(filePath)
@@ -55,5 +55,7 @@ const processImage = async (filePath) => {
   return `/${relativePath.replace(/\\/g, "/")}`; // Ensure forward slashes
 };
 
-module.exports = upload;
-module.exports.processImage = processImage;
+
+
+module.exports = { payment_image_processor, payment_image_uploader} ;
+

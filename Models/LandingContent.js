@@ -1,13 +1,11 @@
 const mongoose = require("mongoose");
 
-const landingContentSchma = new mongoose.Schema(
-  {
-    heading1: { type: String, require: true },
-    heading2: { type: String, require: true },
-    description: { type: String, require: true },
-    images: [{ type: String }],
-  },
-  { timestamps: true }
-);
+const landingContentSchema = new mongoose.Schema({
+  heading1: { type: String, required: true },
+  heading2: { type: String, required: true },
+  description: { type: String, required: true },
+  images: [String]
+}, { timestamps: true });
 
-module.exports = mongoose.model("LandingContent", landingContentSchma);
+module.exports = mongoose.model("LandingContent", landingContentSchema);
+

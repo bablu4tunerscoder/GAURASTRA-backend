@@ -1,20 +1,14 @@
 const mongoose = require("mongoose");
-const { v4: uuidv4 } = require("uuid");
 
 const couponSchema = new mongoose.Schema(
   {
-    coupon_id: {
-      type: String,
-      unique: true,
-      default: uuidv4,
-    },
-
     code: {
       type: String,
       required: true,
-      unique: true, 
+      unique: true,
       uppercase: true,
       trim: true,
+      index: true
     },
 
     discountType: {
@@ -42,11 +36,10 @@ const couponSchema = new mongoose.Schema(
 
     expiresAt: {
       type: Date,
-      default: null, // ✅ null = never expire
+      default: null, // null = never expire
       index: true,
     },
 
-    /* ---------------- Usage Control ---------------- */
     usageLimit: {
       type: Number,
       default: null, // null = unlimited
@@ -59,15 +52,15 @@ const couponSchema = new mongoose.Schema(
 
     perUserLimit: {
       type: Number,
-      default: 1, // ✅ each user max 1 time
+      default: 1,
     },
 
-    /* ---------------- Tracking ---------------- */
     usedBy: [
       {
         user: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "User",
+          index: true
         },
         usedAt: {
           type: Date,
@@ -80,7 +73,6 @@ const couponSchema = new mongoose.Schema(
       },
     ],
 
-    /* ---------------- Product Restriction ---------------- */
     allowedProducts: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -93,21 +85,14 @@ const couponSchema = new mongoose.Schema(
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Product",
+        index: true,
       },
     ],
-
-    backendCreatedAt: {
-      type: Date,
-      default: Date.now,
-    },
   },
   { timestamps: true }
 );
 
-/* ✅ Indexes */
-couponSchema.index({ code: 1 });
+/* ✅ Compound Indexes */
 couponSchema.index({ status: 1, expiresAt: 1 });
 
-module.exports =
-  mongoose.models.AdminCoupon ||
-  mongoose.model("PublicCoupon", couponSchema);
+module.exports = mongoose.model("PublicCoupon", couponSchema);

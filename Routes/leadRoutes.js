@@ -1,7 +1,7 @@
 // In Routes/lead.routes.js
 const express = require('express');
 const router = express.Router();
-const { subscribeLead, getAllLeads } = require('../Controllers/lead.controller');
+const { subscribeLead, getAllLeads } = require('../Controllers/leadController');
 
 
 
