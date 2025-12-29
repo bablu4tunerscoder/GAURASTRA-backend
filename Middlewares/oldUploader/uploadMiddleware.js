@@ -65,7 +65,7 @@ const image_processor = async (filePath) => {
     .toFormat("webp")
     .toFile(webpPath);
 
-  fs.unlinkSync(filePath); // Remove original file
+  fs.unlinkSync(filePath); 
 
   const relativePath = path.relative(process.cwd(), webpPath);
   return `/${relativePath.replace(/\\/g, "/")}`;

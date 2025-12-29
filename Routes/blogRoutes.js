@@ -1,19 +1,15 @@
 const express = require("express");
 const router = express.Router();
 const BlogsController = require("../Controllers/blogController");
-const { product_uploader } = require("../Middlewares/productUploadMiddleware");
+
 const { authCheck, permissionCheck } = require("../Utils/JWTAuth");
+const cloudUploader = require("../Middlewares/upload/cloudUploader");
 
 
 router.post(
   "/createBlogs",
   authCheck, permissionCheck('blog'),
-  product_uploader.fields([
-    {
-      name: "thumbnail",
-      maxCount: 1,
-    },
-  ]),
+  cloudUploader("blogs/thumbnails", "image").single("thumbnail"),
   BlogsController.createBlogs
 );
 
@@ -26,14 +22,9 @@ router.get("/findOneBlog/:blog_id", authCheck, permissionCheck('blog'), BlogsCon
 router.delete("/deleteBlog/:blog_id",authCheck, permissionCheck('blog'), BlogsController.deleteBlogById);
 
 router.put(
-  "/updateBlog/:blog_id",
+  "/update/:blog_id",
   authCheck, permissionCheck('blog'),
-  product_uploader.fields([
-    {
-      name: "thumbnail",
-      maxCount: 1,
-    },
-  ]),
+  cloudUploader("blogs/thumbnails", "image").single("thumbnail"),
   BlogsController.updateBlog
 );
 

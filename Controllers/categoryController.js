@@ -5,7 +5,7 @@ const { pagination_ } = require("../Utils/pagination_");
 // ✅ Create Category
 const createCategory = async (req, res) => {
   try {
-    let { category_name, banner_url, category_description, image_url, status } = req.body;
+    let { category_name, category_description, status } = req.body;
 
     // 🔹 Validation
     if (!category_name) {
@@ -15,17 +15,26 @@ const createCategory = async (req, res) => {
       });
     }
 
-    if (!image_url) {
+    // 🔹 Check if files are uploaded
+    let image_url, banner_url;
+
+    if (req.files?.image?.[0]) {
+      image_url = req.files.image[0].path; // Cloudinary secure URL
+    } else {
       return res.status(400).json({
         status: "0",
-        message: "Category image_url is required",
+        message: "Category image is required",
       });
+    }
+
+    if (req.files?.banner?.[0]) {
+      banner_url = req.files.banner[0].path;
     }
 
     // 🔹 Clean & normalize name
     const category_clean_name = cleanString(category_name);
 
-    // 🔹 Duplicate check (unique: category_name + clean_name)
+    // 🔹 Duplicate check
     const existingCategory = await Category.findOne({
       $or: [
         { category_name },
@@ -47,7 +56,7 @@ const createCategory = async (req, res) => {
       image_url,
       banner_url,
       category_description,
-      status, // default "Active" if not passed
+      status: status || "Active",
     });
 
     return res.status(201).json({
@@ -55,6 +64,7 @@ const createCategory = async (req, res) => {
       message: "Category created successfully",
       data: newCategory,
     });
+
   } catch (error) {
     console.error("Create Category Error:", error);
     return res.status(500).json({
@@ -63,6 +73,7 @@ const createCategory = async (req, res) => {
     });
   }
 };
+
 
 
 
@@ -193,11 +204,9 @@ const getCategoryByName = async (req, res) => {
 const updateCategory = async (req, res) => {
   try {
     const { id } = req.params;
-    let { category_name, banner_url, category_description, status, image_url } = req.body;
+    let { category_name, category_description, status } = req.body;
 
-    // 🔹 Find category
     const category = await Category.findById(id);
-
     if (!category) {
       return res.status(404).json({
         status: "0",
@@ -205,15 +214,12 @@ const updateCategory = async (req, res) => {
       });
     }
 
-    // 🔹 Update name + clean name (with duplicate check)
+    // 🔹 Name update + duplicate check
     if (category_name) {
       const category_clean_name = cleanString(category_name);
 
       const existingCategory = await Category.findOne({
-        $or: [
-          { category_name },
-          { category_clean_name },
-        ],
+        $or: [{ category_name }, { category_clean_name }],
         _id: { $ne: id },
       });
 
@@ -233,15 +239,16 @@ const updateCategory = async (req, res) => {
       category.category_description = category_description;
     }
 
-    if (image_url) {
-      category.image_url = image_url;
-    }
-    if (banner_url) {
-      category.banner_url = banner_url;
-    }
-
     if (status && ["Active", "Inactive"].includes(status)) {
       category.status = status;
+    }
+
+    // 🔹 Update images from req.files
+    if (req.files?.image?.[0]) {
+      category.image_url = req.files.image[0].path;
+    }
+    if (req.files?.banner?.[0]) {
+      category.banner_url = req.files.banner[0].path;
     }
 
     await category.save();
@@ -251,6 +258,7 @@ const updateCategory = async (req, res) => {
       message: "Category updated successfully",
       data: category,
     });
+
   } catch (error) {
     console.error("Update Category Error:", error);
     return res.status(500).json({
@@ -259,6 +267,7 @@ const updateCategory = async (req, res) => {
     });
   }
 };
+
 
 // ✅ Delete Category
 const deleteCategory = async (req, res) => {

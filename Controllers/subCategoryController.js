@@ -5,21 +5,27 @@ const { pagination_ } = require("../Utils/pagination_");
 
 const createSubCategory = async (req, res) => {
   try {
-    let {
+    const {
       category_id,
       subcategory_name,
       subcategory_description,
-      image_url,
-      banner_url,
       targetAudience,
       status,
     } = req.body;
 
-    /* ---------------- VALIDATION ---------------- */
-    if (!category_id || !subcategory_name || !image_url) {
+    /* ---------------- BASIC VALIDATION ---------------- */
+    if (!category_id || !subcategory_name) {
       return res.status(400).json({
         status: "0",
-        message: "category_id, subcategory_name and image_url are required",
+        message: "category_id and subcategory_name are required",
+      });
+    }
+
+    /* ---------------- IMAGE VALIDATION ---------------- */
+    if (!req.files?.image?.[0]) {
+      return res.status(400).json({
+        status: "0",
+        message: "SubCategory image is required",
       });
     }
 
@@ -38,8 +44,8 @@ const createSubCategory = async (req, res) => {
     /* ---------------- DUPLICATE CHECK ---------------- */
     const existingSubCategory = await SubCategory.findOne({
       $or: [
-        { subcategory_clean_name },                 // global unique
-        { subcategory_name, category_id },          // compound unique
+        { subcategory_clean_name },           // global unique
+        { subcategory_name, category_id },    // category-wise unique
       ],
     }).lean();
 
@@ -61,16 +67,20 @@ const createSubCategory = async (req, res) => {
       });
     }
 
-    /* ---------------- CREATE SUBCATEGORY ---------------- */
+    /* ---------------- FILES ---------------- */
+    const image_url = req.files.image[0].path; // Cloudinary URL
+    const banner_url = req.files?.banner?.[0]?.path || null;
+
+    /* ---------------- CREATE ---------------- */
     const newSubCategory = await SubCategory.create({
       category_id,
       subcategory_name,
       subcategory_clean_name,
       image_url,
-     banner_url,
+      banner_url,
       subcategory_description,
       targetAudience,
-      status, // default "Active" if not passed
+      status,
     });
 
     return res.status(201).json({
@@ -83,7 +93,7 @@ const createSubCategory = async (req, res) => {
   } catch (error) {
     console.error("Create SubCategory Error:", error);
 
-    // 🔹 Handle unique index error
+    // 🔹 Mongo duplicate index
     if (error.code === 11000) {
       return res.status(409).json({
         status: "0",
@@ -97,6 +107,7 @@ const createSubCategory = async (req, res) => {
     });
   }
 };
+
 
 
 // ✅ Get All SubCategories with Category Data
@@ -197,14 +208,12 @@ const getSubCategoryById = async (req, res) => {
 const updateSubCategory = async (req, res) => {
   try {
     const { id } = req.params;
-    let {
+    const {
       category_id,
       subcategory_name,
       subcategory_description,
       status,
-      banner_url,
       targetAudience,
-      image_url,
     } = req.body;
 
     if (!id) {
@@ -214,8 +223,8 @@ const updateSubCategory = async (req, res) => {
       });
     }
 
-    /* ---------------- CHECK EXISTING SUBCATEGORY ---------------- */
-    const existingSubCategory = await SubCategory.findById(id).lean();
+    /* ---------------- EXISTING SUBCATEGORY ---------------- */
+    const existingSubCategory = await SubCategory.findById(id);
     if (!existingSubCategory) {
       return res.status(404).json({
         status: "0",
@@ -223,7 +232,7 @@ const updateSubCategory = async (req, res) => {
       });
     }
 
-    /* ---------------- CHECK CATEGORY (IF UPDATED) ---------------- */
+    /* ---------------- CATEGORY CHECK ---------------- */
     if (category_id) {
       const categoryExists = await Category.findById(category_id).lean();
       if (!categoryExists) {
@@ -251,24 +260,46 @@ const updateSubCategory = async (req, res) => {
 
     /* ---------------- PREPARE UPDATE ---------------- */
     const updateFields = {};
+
     if (subcategory_name) {
       updateFields.subcategory_name = subcategory_name;
       updateFields.subcategory_clean_name = cleanString(subcategory_name);
     }
-    if (subcategory_description !== undefined) updateFields.subcategory_description = subcategory_description;
+
+    if (subcategory_description !== undefined)
+      updateFields.subcategory_description = subcategory_description;
+
     if (status) updateFields.status = status;
     if (category_id) updateFields.category_id = category_id;
     if (targetAudience) updateFields.targetAudience = targetAudience;
-    if (image_url) updateFields.image_url = image_url;
-    if (banner_url) updateFields.banner_url = banner_url;
+
+    /* ---------------- FILES (CLOUDINARY) ---------------- */
+    if (req.files?.image?.[0]) {
+      updateFields.image_url = req.files.image[0].path; // secure_url
+    }
+
+    if (req.files?.banner?.[0]) {
+      updateFields.banner_url = req.files.banner[0].path;
+    }
 
     /* ---------------- DUPLICATE CHECK ---------------- */
-    if (updateFields.subcategory_name || updateFields.category_id || updateFields.subcategory_clean_name) {
+    if (subcategory_name || category_id) {
       const duplicate = await SubCategory.findOne({
         _id: { $ne: id },
         $or: [
-          { subcategory_clean_name: updateFields.subcategory_clean_name || existingSubCategory.subcategory_clean_name },
-          { subcategory_name: updateFields.subcategory_name || existingSubCategory.subcategory_name, category_id: updateFields.category_id || existingSubCategory.category_id },
+          {
+            subcategory_clean_name:
+              updateFields.subcategory_clean_name ||
+              existingSubCategory.subcategory_clean_name,
+          },
+          {
+            subcategory_name:
+              updateFields.subcategory_name ||
+              existingSubCategory.subcategory_name,
+            category_id:
+              updateFields.category_id ||
+              existingSubCategory.category_id,
+          },
         ],
       }).lean();
 
@@ -298,18 +329,21 @@ const updateSubCategory = async (req, res) => {
 
   } catch (error) {
     console.error("Update SubCategory Error:", error);
+
     if (error.code === 11000) {
       return res.status(409).json({
         status: "0",
         message: "Duplicate SubCategory detected",
       });
     }
+
     return res.status(500).json({
       status: "0",
       message: "Internal Server Error",
     });
   }
 };
+
 
 
 

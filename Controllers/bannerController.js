@@ -4,6 +4,7 @@ const { pagination_ } = require("../Utils/pagination_");
 // ✅ Create Banner
 exports.createBanner = async (req, res) => {
   try {
+    
     if (!req.file?.path) {
       return res.status(400).json({ message: "Banner image is required" });
     }

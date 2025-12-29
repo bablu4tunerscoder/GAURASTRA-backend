@@ -7,6 +7,7 @@ const connectDB = require("./Config/DB");
 const path = require("path");
 
 // Routes imported
+const authRoutes = require("./Routes/authRouter");
 const userRoutes = require("./Routes/userRouter");
 const categoryRoutes = require("./Routes/categoryRouter");
 const subcategoryRoutes = require("./Routes/subCategoryRouter");
@@ -102,7 +103,9 @@ app.use(
 );
 
 // Routes
-app.use("/api/auth", userRoutes);
+
+app.use("/api/auth", authRoutes);
+app.use("/api/user", userRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/subcategories", subcategoryRoutes);
 app.use("/api/Productes", ProductRouter);

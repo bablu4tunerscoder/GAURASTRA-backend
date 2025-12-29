@@ -57,12 +57,11 @@ function permissionCheck(permission) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    // 🔥 Admin = full access (no permission needed)
     if (req.user.role === "Admin") {
       return next();
     }
 
-// 🔥 Employee permission check
+
     if (
       req.user.role === "Employee" &&
       Array.isArray(req.user.permissions) &&

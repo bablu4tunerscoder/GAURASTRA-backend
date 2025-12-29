@@ -1,7 +1,6 @@
 const blogsModel = require("../Models/blogModel");
-const { product_media_processor } = require("../Middlewares/productUploadMiddleware");
-const path = require("path");
- 
+const usersModel = require("../Models/userModel");
+
 const { pagination_ } = require("../Utils/pagination_");
 
 // Function to format the slug correctly
@@ -22,7 +21,11 @@ const createBlogs = async (req, res) => {
       publishedAt,
       seo
     } = req.body;
+
+
   const user = req.user;
+
+  console.log(user);
     // 🔹 Required fields validation
     if (!title || !content ) {
       return res.status(400).json({
@@ -40,7 +43,7 @@ const createBlogs = async (req, res) => {
     }
 
     // 🔹 Thumbnail handling
-    const thumbnailFile = req.files?.thumbnail?.[0];
+    const thumbnailFile = req.file;
     if (!thumbnailFile) {
       return res.status(400).json({
         status: "0",
@@ -48,19 +51,10 @@ const createBlogs = async (req, res) => {
       });
     }
 
-    let webpThumbnailPath;
-    try {
-      webpThumbnailPath = await product_media_processor(thumbnailFile.path);
-    } catch (err) {
-      return res.status(500).json({
-        status: "0",
-        message: "Thumbnail processing failed",
-      });
-    }
 
     const thumbnail = {
       public_id: thumbnailFile.filename,
-      secure_url: webpThumbnailPath,
+      secure_url: thumbnailFile.path,
     };
 
     // 🔹 SEO safe parsing
@@ -68,6 +62,8 @@ const createBlogs = async (req, res) => {
     if (seo) {
       seoData = typeof seo === "string" ? JSON.parse(seo) : seo;
     }
+
+    const getUser = await usersModel.findById(user.userid);
 
     // 🔹 Create Blog
     const newBlog = await blogsModel.create({
@@ -77,10 +73,10 @@ const createBlogs = async (req, res) => {
       publishedAt: status === "Published" ? publishedAt || new Date() : null,
       slug: finalSlug,
       thumbnail,
-      author:user._id,
+      author:user.userid,
       authorInfo:{
-        name:user.name,
-        email:user.email
+        name:getUser.name,
+        email:getUser.email
       },
       seo: {
         page_title: seoData.page_title,
@@ -304,24 +300,12 @@ const updateBlog = async (req, res) => {
     }
 
     // 🔹 Thumbnail update (optional)
-    if (req.files?.thumbnail?.[0]) {
-      const thumbnailFile = req.files.thumbnail[0];
-
-      let webpThumbnailPath;
-      try {
-        webpThumbnailPath = await product_media_processor(thumbnailFile.path);
-      } catch (error) {
-        return res.status(500).json({
-          status: "0",
-          message: "Thumbnail processing failed",
-        });
-      }
-
-      blogToUpdate.thumbnail = {
-        public_id: thumbnailFile.filename,
-        secure_url: webpThumbnailPath,
-      };
-    }
+    if (req.file) {
+  blogToUpdate.thumbnail = {
+    public_id: req.file.filename, 
+    secure_url: req.file.path,    
+  };
+}
 
     // 🔹 Update fields
     if (title) blogToUpdate.title = title;

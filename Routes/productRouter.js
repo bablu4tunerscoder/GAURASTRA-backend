@@ -9,6 +9,7 @@ const DiscountController = require("../Controllers/productDiscountController");
 const ProductController = require("../Controllers/productController");
 
 const { authCheck, permissionCheck } = require("../Utils/JWTAuth");
+const cloudUploader = require("../Middlewares/upload/cloudUploader");
 
 
 // product crud routes
@@ -59,12 +60,15 @@ router.get("/getAllDiscounts",  DiscountController.findAllWithDiscounts);
 
 
 
+router.post("/Productmedia", router.post(
+  "/Productmedia",
+  authCheck,
+  cloudUploader("products/media").fields([
+    { name: "media", maxCount: 20 },
+  ]),
+  uploadProductMedia
+));
 
-// images modules routes
-const { product_uploader } = require("../Middlewares/productUploadMiddleware");
-
-
-router.post("/Productmedia", product_uploader.array("media", 20),authCheck, uploadProductMedia);
 router.get("/getAllImagesIDS/:product_id", productIdByImages);
 router.delete("/delete-image/:image_id",authCheck, imagesDelete);
 

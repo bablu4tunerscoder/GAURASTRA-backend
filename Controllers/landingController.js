@@ -1,27 +1,42 @@
+const { imageToWebp } = require("../Middlewares/upload/imageProcessor");
 const LandingContent = require("../Models/LandingContent");
 const { pagination_ } = require("../Utils/pagination_");
 
 exports.createLandingContent = async (req, res) => {
   try {
     const { heading1, heading2, description } = req.body;
- 
-    const images = req.files.map(file => `/Uploads/landing/${file.filename}`);
- 
+
+    const images = [];
+
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        // 🔥 convert image to webp
+        const webpPath = await imageToWebp(file.path);
+
+        // 🔹 Windows / Linux safe path
+        const relativePath = webpPath
+          .replace(process.cwd(), "")
+          .replace(/\\/g, "/");
+
+        images.push(relativePath);
+      }
+    }
+
     const content = new LandingContent({
       heading1,
       heading2,
       description,
       images,
     });
- 
+
     await content.save();
- 
+
     res.status(201).json({ message: "Landing content created", content });
   } catch (error) {
     res.status(500).json({ message: "Server Error", error });
   }
 };
- 
+
 exports.getLandingContent = async (req, res) => {
   try {
     // Extract pagination details
@@ -29,6 +44,8 @@ exports.getLandingContent = async (req, res) => {
       defaultLimit: 10,
       maxLimit: 20,
     });
+
+    
 
     // Run queries in parallel
     const [content, totalRecords] = await Promise.all([
@@ -81,9 +98,20 @@ exports.updateLandingContent = async (req, res) => {
     let updatedData = { heading1, heading2, description };
 
     if (req.files && req.files.length > 0) {
-      const images = req.files.map(
-        (file) => `/Uploads/landing/${file.filename}`
-      );
+      const images = [];
+
+      for (const file of req.files) {
+        // 🔥 convert to webp
+        const webpPath = await imageToWebp(file.path);
+
+        // 🔹 make DB-safe path
+        const relativePath = webpPath
+          .replace(process.cwd(), "")
+          .replace(/\\/g, "/");
+
+        images.push(relativePath);
+      }
+
       updatedData.images = images;
     }
 
