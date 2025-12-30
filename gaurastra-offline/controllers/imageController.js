@@ -1,4 +1,4 @@
-const { upload_offline_image } = require("../utilities/uploadImage");
+const { upload_offline_image } = require("../offline_utils/uploadImage");
 const fs = require("fs");
 const path = require("path");
 const sharp = require("sharp");
