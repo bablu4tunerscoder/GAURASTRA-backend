@@ -2,9 +2,9 @@ const Product = require("../models/product");
 const Joi = require("joi");
 const slugify = require("slugify").default;
 const { v4: uuidv4 } = require("uuid");
-const { upload_qr_image } = require("../utils/uploadImage");
+const { upload_qr_image } = require("../utilities/uploadImage");
 
-const { generateQRCode } = require("../utils/generateBarcod");
+const { generateQRCode } = require("../utilities/generateBarcod");
 
 const variantSchema = Joi.object({
   color: Joi.string().required(),

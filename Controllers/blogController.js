@@ -1,7 +1,7 @@
 const blogsModel = require("../Models/blogModel");
 const usersModel = require("../Models/userModel");
 
-const { pagination_ } = require("../Utils/pagination_");
+const { pagination_ } = require("../utilities/pagination_");
 
 // Function to format the slug correctly
 const formatSlug = (title) =>

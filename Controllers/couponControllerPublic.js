@@ -1,5 +1,5 @@
 const PublicCoupon = require("../Models/couponModelPublic");
-const { pagination_ } = require("../Utils/pagination_");
+const { pagination_ } = require("../utilities/pagination_");
 const mongoose = require("mongoose");
 
 // ✅ Create Coupon

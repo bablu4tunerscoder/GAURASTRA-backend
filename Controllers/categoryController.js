@@ -1,6 +1,6 @@
 const Category = require("../Models/categoryModel");
-const {cleanString} = require('../Utils/helpers');
-const { pagination_ } = require("../Utils/pagination_");
+const {cleanString} = require('../utilities/helpers');
+const { pagination_ } = require("../utilities/pagination_");
 
 // ✅ Create Category
 const createCategory = async (req, res) => {

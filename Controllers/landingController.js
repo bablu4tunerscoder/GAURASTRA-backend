@@ -1,6 +1,6 @@
 const { imageToWebp } = require("../Middlewares/upload/imageProcessor");
 const LandingContent = require("../Models/LandingContent");
-const { pagination_ } = require("../Utils/pagination_");
+const { pagination_ } = require("../utilities/pagination_");
 
 exports.createLandingContent = async (req, res) => {
   try {

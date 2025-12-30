@@ -1,8 +1,8 @@
-const phonepeService = require("../Utils/phonepe.service");
+const phonepeService = require("../utilities/phonepe.service");
 const Order = require("../Models/orderModel");
 const Payment = require("../Models/paymentModel");
-const phonepeConfig = require("../Utils/phonepe.config");
-const { pagination_ } = require("../Utils/pagination_");
+const phonepeConfig = require("../utilities/phonepe.config");
+const { pagination_ } = require("../utilities/pagination_");
 
 // Helper for IST timestamps
 function getISTDate() {

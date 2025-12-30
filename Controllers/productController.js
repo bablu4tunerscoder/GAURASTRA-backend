@@ -7,12 +7,12 @@ const Discount = require("../Models/ProductDiscountModel");
 const slugify = require("slugify").default;
 const Category = require("../Models/categoryModel");
 const SubCategory = require("../Models/subCategoryModel");
-const { enrichProductListWithVariants } = require("../utils/enrichProductListWithVariants");
+const { enrichProductListWithVariants } = require("../utilities/enrichProductListWithVariants");
 const BlogPost = require("../Models/blogModel");
-const { pagination_ } = require("../Utils/pagination_");
+const { pagination_ } = require("../utilities/pagination_");
 const categoryModel = require("../Models/categoryModel");
 const subCategoryModel = require("../Models/subCategoryModel");
-const { enrichSingleProductWithVariants } = require("../Utils/enrichSingleProductWithVariants.js");
+const { enrichSingleProductWithVariants } = require("../utilities/enrichSingleProductWithVariants.js");
 const Rating = require('../Models/ratingAndComment');
 
 

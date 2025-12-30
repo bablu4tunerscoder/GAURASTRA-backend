@@ -1,6 +1,6 @@
 // controllers/userActivityController.js
 const UserActivity = require("../Models/UserActivityModel");
-const { pagination_ } = require("../Utils/pagination_");
+const { pagination_ } = require("../utilities/pagination_");
  
 // POST /api/activity
 

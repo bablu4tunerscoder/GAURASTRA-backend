@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-const { authCheck, adminCheck } = require("../Utils/JWTAuth");
+const { authCheck, adminCheck } = require("../utilities/JWTAuth");
 
 const { getGAOverview, getGAEvents, getUserActivity } = require("../Controllers/googleAnalytics");
 

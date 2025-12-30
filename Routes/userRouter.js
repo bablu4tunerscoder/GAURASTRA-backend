@@ -1,7 +1,7 @@
 const express = require("express");
 const userController = require("../Controllers/userController");
 
-const { authCheck, permissionCheck } = require("../Utils/JWTAuth");
+const { authCheck, permissionCheck } = require("../utilities/JWTAuth");
 const localUploader = require("../Middlewares/upload/localUploader");
 
 const router = express.Router();

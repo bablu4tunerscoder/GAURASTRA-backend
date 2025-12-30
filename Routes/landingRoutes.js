@@ -8,7 +8,7 @@ const {
   updateLandingContent,
   deleteLandingContent,
 } = require("../Controllers/landingController");
-const { authCheck, permissionCheck } = require("../Utils/JWTAuth");
+const { authCheck, permissionCheck } = require("../utilities/JWTAuth");
 const localUploader = require("../Middlewares/upload/localUploader");
 
 router.post(

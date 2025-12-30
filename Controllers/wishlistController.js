@@ -1,12 +1,12 @@
 const Wishlist = require("../Models/wishlistModel");
-const { pagination_ } = require("../Utils/pagination_");
+const { pagination_ } = require("../utilities/pagination_");
 const Category = require("../Models/categoryModel");
 const SubCategory = require("../Models/subCategoryModel");
 const Product = require("../Models/ProductModel");
 const ProductImage = require("../Models/ProductImgModel");
 const Pricing = require("../Models/ProductPricingModel");
 const ProductStock = require("../Models/ProductStockModel");
-const { enrichProductListWithVariants } = require("../utils/enrichProductListWithVariants");
+const { enrichProductListWithVariants } = require("../utilities/enrichProductListWithVariants");
 
 
 const addToWishlist = async (req, res) => {

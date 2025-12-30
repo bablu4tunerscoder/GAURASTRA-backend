@@ -10,8 +10,8 @@ const {
 const { v4: uuidv4 } = require("uuid");
 const Payment = require("../Models/paymentModel");
 const Order = require("../Models/orderModel");
-const phonepeConfig = require("../Utils/phonepe.config");
-const { sleep } = require("../Utils/helpers");
+const phonepeConfig = require("../utilities/phonepe.config");
+const { sleep } = require("../utilities/helpers");
 
 class PhonePeService {
   constructor() {

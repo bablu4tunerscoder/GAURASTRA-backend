@@ -7,7 +7,7 @@ const {
     listAllRatingsForAdmin,
     updatePublishStatus
 } = require('../Controllers/ratingCommentController');
-const { authCheck, permissionCheck } = require("../Utils/JWTAuth");
+const { authCheck, permissionCheck } = require("../utilities/JWTAuth");
 
 router.post('/add',authCheck, createRating);
 router.get('/:productId/ratings',authCheck, listRatingsByProduct); 

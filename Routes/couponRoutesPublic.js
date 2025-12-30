@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { authCheck, permissionCheck } = require("../Utils/JWTAuth");
+const { authCheck, permissionCheck } = require("../utilities/JWTAuth");
 
 
 const {

@@ -8,7 +8,7 @@ const {
   getUserActivity,
   clearAllActivities,
 } = require("../Controllers/UserActivityController");
-const { authCheck, permissionCheck } = require("../Utils/JWTAuth");
+const { authCheck, permissionCheck } = require("../utilities/JWTAuth");
 
 router.post("/add_activity", authCheck, permissionCheck('user'), logActivity);
 router.get("/activities",authCheck, permissionCheck('user'), getAllActivities);

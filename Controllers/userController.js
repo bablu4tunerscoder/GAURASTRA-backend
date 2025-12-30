@@ -2,7 +2,7 @@
 
 const User = require("../Models/userModel");
 
-const { getGeolocation } = require("../Utils/geolocation");
+const { getGeolocation } = require("../utilities/geolocation");
 
 
 // const serviceAccount = require("../Config/serviceAccountKey.json");

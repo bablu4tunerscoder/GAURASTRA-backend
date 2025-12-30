@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { sendConversionEvent } = require("../Utils/facebookConversionsApi"); // Adjust path as per your folder structure
+const { sendConversionEvent } = require("../utilities/facebookConversionsApi"); // Adjust path as per your folder structure
 
 // Controller for handling Facebook conversion event trigger
 const sendFacebookEvent = async (req, res) => {

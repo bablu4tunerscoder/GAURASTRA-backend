@@ -1,6 +1,6 @@
 const User = require('../models/user');
 const bcrypt = require('bcryptjs');
-const { generateToken } = require('../utils/jwt');
+const { generateToken } = require('../utilities/jwt');
 
 
 

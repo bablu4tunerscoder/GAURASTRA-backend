@@ -2,7 +2,7 @@ const LeadModel = require('../Models/leadModel');
 const UserCoupon = require('../Models/couponModelUser'); 
 
 const moment = require('moment'); 
-const { pagination_ } = require('../Utils/pagination_');
+const { pagination_ } = require('../utilities/pagination_');
 
 
 exports.subscribeLead = async (req, res) => {

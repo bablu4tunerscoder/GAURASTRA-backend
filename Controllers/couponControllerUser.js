@@ -1,5 +1,5 @@
 const UserCoupon = require("../Models/couponModelUser");
-const { pagination_ } = require("../Utils/pagination_");
+const { pagination_ } = require("../utilities/pagination_");
 
 
 // ✅ Get All Coupons

@@ -2,7 +2,7 @@ const Product = require("../Models/ProductModel");
 const Discount = require("../Models/ProductDiscountModel");
 const Pricing = require("../Models/ProductPricingModel");
 const ProductStock = require("../Models/ProductStockModel");
-const { pagination_ } = require("../Utils/pagination_");
+const { pagination_ } = require("../utilities/pagination_");
 
 
 const createDiscount = async (req, res) => {

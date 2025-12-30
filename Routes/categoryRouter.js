@@ -1,6 +1,6 @@
 const express = require("express");
 const categoryController = require("../Controllers/categoryController");
-const { authCheck, permissionCheck } = require("../Utils/JWTAuth");
+const { authCheck, permissionCheck } = require("../utilities/JWTAuth");
 const cloudUploader = require("../Middlewares/upload/cloudUploader");
 
 

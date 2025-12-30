@@ -2,18 +2,18 @@ const bcrypt = require("bcryptjs");
 
 const User = require("../Models/userModel");
 
-const { getGeolocation } = require("../Utils/geolocation");
+const { getGeolocation } = require("../utilities/geolocation");
 const axios = require("axios");
 
 const admin = require("firebase-admin");
 // const serviceAccount = require("../Config/serviceAccountKey.json");
 const serviceAccountProd = require("../Config/serviceAccountKeyProd.json");
-const { createToken } = require("../Utils/JWTAuth");
+const { createToken } = require("../utilities/JWTAuth");
 
 const wishlistModel = require("../Models/wishlistModel");
 const CartModel = require("../Models/CartModel");
 const jwt = require("jsonwebtoken");
-const { generateOTP } = require("../Utils/helpers");
+const { generateOTP } = require("../utilities/helpers");
 const { userVerifyEmail } = require("../email/user_verify_email");
 const { imageToWebp } = require("../Middlewares/upload/imageProcessor");
 

@@ -1,5 +1,5 @@
 const Rating = require('../Models/ratingAndComment');
-const { pagination_ } = require('../Utils/pagination_');
+const { pagination_ } = require('../utilities/pagination_');
 
 
 const createRating = async (req, res) => {

@@ -6,7 +6,7 @@ const {
   updateBanner,
   deleteBanner,
 } = require("../Controllers/bannerController");
-const { authCheck, permissionCheck } = require("../Utils/JWTAuth");
+const { authCheck, permissionCheck } = require("../utilities/JWTAuth");
 
 
 const cloudUploader = require("../Middlewares/upload/cloudUploader");

@@ -4,7 +4,7 @@ const SubCategory = require("../Models/subCategoryModel");
 const Product = require("../Models/ProductModel");
 const BlogPost = require("../Models/blogModel");
 
-const { enrichProductListWithVariants } = require("../Utils/enrichProductListWithVariants");
+const { enrichProductListWithVariants } = require("../utilities/enrichProductListWithVariants");
 
 const home_get_controller = async (req, res) => {
   try {

@@ -2,7 +2,7 @@
 const express = require("express");
 const router = express.Router();
 const paymentController = require("../Controllers/paymentController");
-const { authCheck, permissionCheck } = require("../Utils/JWTAuth");
+const { authCheck, permissionCheck } = require("../utilities/JWTAuth");
 
 // --- Health (quick sanity check) ---
 router.get("/health", (req, res) => res.json({ ok: true }));

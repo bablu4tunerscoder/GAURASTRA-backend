@@ -1,6 +1,6 @@
 const express = require("express");
 const subcategoryController = require("../Controllers/subCategoryController");
-const { authCheck, permissionCheck } = require("../Utils/JWTAuth");
+const { authCheck, permissionCheck } = require("../utilities/JWTAuth");
 const cloudUploader = require("../Middlewares/upload/cloudUploader");
 
 const router = express.Router();

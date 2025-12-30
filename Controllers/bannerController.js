@@ -1,5 +1,5 @@
 const Banner = require("../Models/bannerModel");
-const { pagination_ } = require("../Utils/pagination_");
+const { pagination_ } = require("../utilities/pagination_");
 
 // ✅ Create Banner
 exports.createBanner = async (req, res) => {

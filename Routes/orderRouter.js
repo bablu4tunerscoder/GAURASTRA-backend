@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const orderController = require("../Controllers/orderController");
-const { authCheck, permissionCheck } = require("../Utils/JWTAuth");
+const { authCheck, permissionCheck } = require("../utilities/JWTAuth");
 
 
 // Create new order
