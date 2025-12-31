@@ -3,7 +3,6 @@ const Joi = require("joi");
 const slugify = require("slugify").default;
 const { v4: uuidv4 } = require("uuid");
 const { upload_qr_image } = require("../offline_utils/uploadImage");
-
 const { generateQRCode } = require("../offline_utils/generateBarcod");
 
 const variantSchema = Joi.object({
@@ -185,6 +184,8 @@ exports.updateProduct = async (req, res) => {
 
     const product = await Product.findOne({ unique_id: productId });
 
+    console.log(product);
+
     if (!product) {
       return res.status(404).json({
         success: false,
@@ -258,7 +259,7 @@ exports.updateProduct = async (req, res) => {
 
         const qrString = JSON.stringify(qrPayload);
 
-        const grDataUrl = await generateBarcode(qrString);
+        const grDataUrl = await generateQRCode(qrString);
 
         const qrUpload  = await upload_qr_image(grDataUrl);
 

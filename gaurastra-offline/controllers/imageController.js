@@ -1,7 +1,4 @@
-const { upload_offline_image } = require("../offline_utils/uploadImage");
-const fs = require("fs");
-const path = require("path");
-const sharp = require("sharp");
+
 
 exports.uploadOfflineImage = async (req, res) => {
   try {
@@ -13,28 +10,10 @@ exports.uploadOfflineImage = async (req, res) => {
       });
     }
 
-    const originalPath = req.file.path;
-    const ext = path.extname(originalPath).toLowerCase();
-    const webpPath = originalPath.replace(ext, ".webp");
-
-    await sharp(originalPath)
-      .toFormat("webp")
-      .toFile(webpPath);
-
-    fs.unlinkSync(originalPath);
-
-    console.log("Processed WebP path:", webpPath);
-
-    const absolutePath = path.resolve(webpPath).split(path.sep).join('/');
-
-    const cloudResult = await upload_offline_image(absolutePath);
-
-    fs.unlinkSync(webpPath);
-
     return res.status(200).json({
       success: true,
       message: "Image uploaded successfully",
-      data: cloudResult,
+      url: req.file.path,
     });
 
   } catch (error) {

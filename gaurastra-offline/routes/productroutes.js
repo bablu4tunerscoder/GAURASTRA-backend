@@ -26,7 +26,4 @@ router.put("/update-variant/p/:productId/v/:variantId", productCtrl.updateSingle
 
 
 
-
-
-
 module.exports = router;
