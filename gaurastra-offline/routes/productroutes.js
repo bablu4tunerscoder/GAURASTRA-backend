@@ -5,7 +5,7 @@ const { offlineAuthMiddleware } = require("../middleware/auth");
 
 // workers
 router.post("/w/create", offlineAuthMiddleware, productCtrl.createProduct);
-router.post("/w/create", offlineAuthMiddleware, productCtrl.createProduct);
+
 router.get("/w",offlineAuthMiddleware, productCtrl.getAllProducts);
 router.get("/w/p/:id", offlineAuthMiddleware, productCtrl.getProductByUniqId);
 router.get("/w/:productId/variant/:variantId",offlineAuthMiddleware, productCtrl.getProductByUniqIdVariantId);
@@ -16,7 +16,7 @@ router.put("/update-variant/w/p/:productId/v/:variantId",offlineAuthMiddleware ,
 
 //admin
 router.post("/create" , productCtrl.createProduct);
-router.post("/create", productCtrl.createProduct);
+
 router.get("/", productCtrl.getAllProducts);
 router.get("/:id", productCtrl.getProductByUniqId);
 router.get("/:productId/variant/:variantId", productCtrl.getProductByUniqIdVariantId);

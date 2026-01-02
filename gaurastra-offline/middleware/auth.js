@@ -5,6 +5,8 @@ const jwt = require('jsonwebtoken');
 const offlineAuthMiddleware = async (req, res, next) => {
     try {
         // 1. Token header se read kare
+
+       
         const authHeader = req.headers["authorization"];
 
         if (!authHeader) {
@@ -13,6 +15,8 @@ const offlineAuthMiddleware = async (req, res, next) => {
                 message: "No token provided"
             });
         }
+
+ 
 
         let token = authHeader.split(" ")[1];
 
@@ -35,7 +39,7 @@ const offlineAuthMiddleware = async (req, res, next) => {
             });
         }
 
-        // console.log("CLEAN TOKEN:", token);
+
 
         // 4. JWT verify
         jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
@@ -46,6 +50,7 @@ const offlineAuthMiddleware = async (req, res, next) => {
                     message: "Invalid or expired token"
                 });
             }
+
 
             req.user = decoded.user;
             next();

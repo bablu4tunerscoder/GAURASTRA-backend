@@ -4,6 +4,7 @@ const slugify = require("slugify").default;
 const { v4: uuidv4 } = require("uuid");
 const { upload_qr_image } = require("../offline_utils/uploadImage");
 const { generateQRCode } = require("../offline_utils/generateBarcod");
+const { pagination_ } = require("../../utilities/pagination_");
 
 const variantSchema = Joi.object({
   color: Joi.string().required(),
@@ -24,11 +25,25 @@ const productValidationSchema = Joi.object({
 
 const randString = Math.random().toString(36).substring(2, 8);
 
-exports.createProduct = async (req, res) => {
-  console.log("API RUN SUCCESS");
+const generateStyleCode = (title) => {
+  const clean = title
+    .replace(/[^a-zA-Z]/g, "")
+    .substring(0, 4)
+    .toUpperCase();
 
+  const rand = Math.floor(Math.random() * 10000)
+    .toString()
+    .padStart(4, "0");
+
+  return `${clean}${rand}`;
+};
+
+const random3Digit = () =>
+  Math.floor(Math.random() * 1000).toString().padStart(3, "0");
+
+
+exports.createProduct = async (req, res) => {
   try {
-    // 1. Validate body
     const { error, value } = productValidationSchema.validate(req.body);
 
     if (error) {
@@ -39,11 +54,15 @@ exports.createProduct = async (req, res) => {
       });
     }
 
-    // 2. Generate Product Unique ID
+    // 🔹 Product unique id
     const product_unique_id = uuidv4();
     value.unique_id = product_unique_id;
 
-    // 3. Create slug
+    // 🔹 Product style code (AUTO)
+    const styleCode = generateStyleCode(value.title);
+    value.p_style_code = styleCode;
+
+    // 🔹 Slug
     const generatedSlug = slugify(value.title, {
       lower: true,
       strict: true,
@@ -52,30 +71,31 @@ exports.createProduct = async (req, res) => {
 
     value.slug = `${generatedSlug}-${randString}`;
 
-
-    // 🚀 4. Add unique ID  QR for each variant
+    // 🔹 Variants
     if (value.variants && value.variants.length > 0) {
-
       for (let variant of value.variants) {
 
+        // 🆔 Variant unique id
         variant.variant_unique_id = uuidv4();
 
+      let VstyleCode = `${styleCode}/${variant.size.toUpperCase()}-${random3Digit()}`;
+       variant.v_style_code = VstyleCode;
+    
+        // 📦 QR code
         const qrPayload = {
           product_id: product_unique_id,
           variant_id: variant.variant_unique_id,
+          v_style_code: variant.v_style_code,
         };
 
         const qrString = JSON.stringify(qrPayload);
-
-        const grDataUrl = await generateQRCode(qrString);
-
-        const qrUpload  = await upload_qr_image(grDataUrl);
+        const qrDataUrl = await generateQRCode(qrString);
+        const qrUpload = await upload_qr_image(qrDataUrl);
 
         variant.qrcode_url = qrUpload.url;
       }
     }
 
-    // 5. Create final product
     const product = new Product(value);
     await product.save();
 
@@ -96,15 +116,49 @@ exports.createProduct = async (req, res) => {
 // GET ALL
 exports.getAllProducts = async (req, res) => {
   try {
-    const products = await Product.find()
-      .sort({ createdAt: -1 })
-      .lean();
+    const { search } = req.query;
 
-    res.json({ success: true, data: products });
+    const { page, limit, skip } = pagination_(req.query, {
+      defaultLimit: 10,
+      maxLimit: 20,
+    });
+
+    let filter = {};
+
+    if (search) {
+      filter.$or = [
+        { title: { $regex: search, $options: "i" } },
+        { slug: { $regex: search, $options: "i" } },
+      
+        // 🔹 Variant level search
+        { "variants.size": { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const [products, total] = await Promise.all([
+      Product.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+
+      Product.countDocuments(filter),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      pagination: {
+        page,
+        limit,
+        total,
+      },
+      data: products,
+    });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 };
+
 
 // GET SINGLE product varient
 exports.getProductByUniqIdVariantId = async (req, res) => {
@@ -159,7 +213,6 @@ exports.getProductByUniqIdVariantId = async (req, res) => {
   }
 };
 
-
 // GET SINGLE
 exports.getProductByUniqId = async (req, res) => {
   try {
@@ -177,14 +230,11 @@ exports.getProductByUniqId = async (req, res) => {
   }
 };
 
-
 exports.updateProduct = async (req, res) => {
   try {
-    const  productId  = req.params.id;
+    const productId = req.params.id;
 
     const product = await Product.findOne({ unique_id: productId });
-
-    console.log(product);
 
     if (!product) {
       return res.status(404).json({
@@ -198,7 +248,6 @@ exports.updateProduct = async (req, res) => {
     // --------------------------------
     // 1. Update Product Basic Fields
     // --------------------------------
-
     if (value.title) {
       product.title = value.title;
 
@@ -209,22 +258,19 @@ exports.updateProduct = async (req, res) => {
       });
 
       product.slug = `${generatedSlug}-${randString}`;
+     
     }
 
     if (value.details) product.details = value.details;
     if (value.images) product.images = value.images;
     if (value.active !== undefined) product.active = value.active;
 
-    // --------------------------------
-    // 2. Update Variants
-    // --------------------------------
 
     if (value.variants && Array.isArray(value.variants)) {
       const updatedVariants = [];
 
       for (let variantData of value.variants) {
-
-        // Find existing variant
+        // 🔍 Find existing variant
         let existingVariant = product.variants.find(
           (v) => v.variant_unique_id === variantData.variant_unique_id
         );
@@ -235,12 +281,14 @@ exports.updateProduct = async (req, res) => {
         if (existingVariant) {
           existingVariant.color = variantData.color ?? existingVariant.color;
           existingVariant.size = variantData.size ?? existingVariant.size;
-
           existingVariant.stock = variantData.stock ?? existingVariant.stock;
-          existingVariant.actual_price = variantData.actual_price ?? existingVariant.actual_price;
+          existingVariant.actual_price =
+            variantData.actual_price ?? existingVariant.actual_price;
           existingVariant.offer = variantData.offer ?? existingVariant.offer;
-          existingVariant.offer_type = variantData.offer_type ?? existingVariant.offer_type;
+          existingVariant.offer_type =
+            variantData.offer_type ?? existingVariant.offer_type;
 
+          // ❌ v_style_code change nahi hoga
           updatedVariants.push(existingVariant);
           continue;
         }
@@ -250,18 +298,16 @@ exports.updateProduct = async (req, res) => {
         // -------------------------
         const newVariantId = uuidv4();
 
+        const vStyleCode = `${product.p_style_code}/${variantData.size.toUpperCase()}-${random3Digit()}`;
+
         const qrPayload = {
           product_id: product.unique_id,
           variant_id: newVariantId,
         };
 
-      
-
         const qrString = JSON.stringify(qrPayload);
-
-        const grDataUrl = await generateQRCode(qrString);
-
-        const qrUpload  = await upload_qr_image(grDataUrl);
+        const qrDataUrl = await generateQRCode(qrString);
+        const qrUpload = await upload_qr_image(qrDataUrl);
 
         updatedVariants.push({
           variant_unique_id: newVariantId,
@@ -271,6 +317,7 @@ exports.updateProduct = async (req, res) => {
           actual_price: variantData.actual_price,
           offer: variantData.offer || 0,
           offer_type: variantData.offer_type || "none",
+          v_style_code: vStyleCode,
           qrcode_url: qrUpload.url,
         });
       }
@@ -278,9 +325,6 @@ exports.updateProduct = async (req, res) => {
       product.variants = updatedVariants;
     }
 
-    // --------------------------------
-    // 3. Save Updated Product
-    // --------------------------------
     await product.save();
 
     return res.json({
@@ -288,7 +332,6 @@ exports.updateProduct = async (req, res) => {
       message: "Product updated successfully",
       data: product,
     });
-
   } catch (err) {
     return res.status(500).json({
       success: false,
@@ -297,12 +340,12 @@ exports.updateProduct = async (req, res) => {
   }
 };
 
+
 exports.updateSingleVariant = async (req, res) => {
   try {
-    const  productId = req.params.productId
-     const  variantId = req.params.variantId
+    const productId = req.params.productId;
+    const variantId = req.params.variantId;
 
-    // Find product
     const product = await Product.findOne({ unique_id: productId });
 
     if (!product) {
@@ -312,7 +355,6 @@ exports.updateSingleVariant = async (req, res) => {
       });
     }
 
-    // Find specific variant inside product
     const variant = product.variants.find(
       (v) => v.variant_unique_id === variantId
     );
@@ -324,15 +366,18 @@ exports.updateSingleVariant = async (req, res) => {
       });
     }
 
-    // Update allowed fields
     const data = req.body;
 
     if (data.color !== undefined) variant.color = data.color;
     if (data.size !== undefined) variant.size = data.size;
     if (data.stock !== undefined) variant.stock = data.stock;
-    if (data.actual_price !== undefined) variant.actual_price = data.actual_price;
+    if (data.actual_price !== undefined)
+      variant.actual_price = data.actual_price;
     if (data.offer !== undefined) variant.offer = data.offer;
-    if (data.offer_type !== undefined) variant.offer_type = data.offer_type;
+    if (data.offer_type !== undefined)
+      variant.offer_type = data.offer_type;
+
+    // ❌ v_style_code & QR regenerate nahi hoga
 
     await product.save();
 
@@ -341,7 +386,6 @@ exports.updateSingleVariant = async (req, res) => {
       message: "Variant updated successfully",
       data: variant,
     });
-
   } catch (err) {
     return res.status(500).json({
       success: false,
@@ -349,6 +393,7 @@ exports.updateSingleVariant = async (req, res) => {
     });
   }
 };
+
 
 // DELETE
 exports.deleteProduct = async (req, res) => {

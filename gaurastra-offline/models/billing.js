@@ -45,6 +45,12 @@ const BillingSchema = new mongoose.Schema(
       city: { type: String },
       state: { type: String },
     },
+     return_status: {
+      type: String,
+      enum: ["NONE", "PARTIAL", "FULL"],
+      default: "NONE",
+      index: true,
+    },
   },
   { timestamps: true }
 );

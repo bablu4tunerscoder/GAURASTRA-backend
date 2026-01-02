@@ -18,6 +18,8 @@ const VariantSchema = new mongoose.Schema({
   offer: { type: Number, default: 0, min: 0 },
   discounted_price: { type: Number, default: 0 },
 
+  v_style_code: { type: String, required: true },
+
   offer_type: {
     type: String,
     enum: ["percentage", "flat", "none"],
@@ -51,6 +53,13 @@ const ProductSchema = new mongoose.Schema(
       required: true,
       unique: true,
       index: true,
+    },
+
+    p_style_code:{
+      type: String,
+      required: true,
+      unique: true,
+      index: true
     },
 
     title: { type: String, required: true },

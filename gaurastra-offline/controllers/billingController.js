@@ -1,3 +1,4 @@
+const { pagination_ } = require("../../utilities/pagination_");
 const OfflineBilling = require("../models/billing");
 const OfflineProduct = require("../models/product");
 
@@ -223,8 +224,60 @@ exports.createBilling = async (req, res) => {
 // ---------------------------
 exports.getAllBilling = async (req, res) => {
   try {
-    const bills = await OfflineBilling.find().sort({ createdAt: -1 });
-    res.json({ success: true, data: bills });
+    const { search, startDate, endDate, payment_method } = req.query;
+
+    // 🔹 pagination (agar already helper use karte ho)
+    const { page, limit, skip } = pagination_(req.query, {
+      defaultLimit: 10,
+      maxLimit: 20,
+    });
+
+    let filter = {};
+
+    // 🔍 Text search
+    if (search) {
+      filter.$or = [
+        { billing_id: { $regex: search, $options: "i" } },
+
+        { "user_info.full_name": { $regex: search, $options: "i" } },
+        { "user_info.phone": { $regex: search, $options: "i" } },
+
+        { payment_method: { $regex: search, $options: "i" } },
+
+        { "items.title": { $regex: search, $options: "i" } },
+      ];
+    }
+
+    if (payment_method) {
+      filter.payment_method = payment_method;
+    }
+
+    // 📅 Date range filter
+    if (startDate || endDate) {
+      filter.createdAt = {};
+      if (startDate) filter.createdAt.$gte = new Date(startDate);
+      if (endDate) filter.createdAt.$lte = new Date(endDate);
+    }
+
+    const [bills, total] = await Promise.all([
+      OfflineBilling.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+
+      OfflineBilling.countDocuments(filter),
+    ]);
+
+    res.json({
+      success: true,
+      pagination: {
+        page,
+        limit,
+        total,
+      },
+      data: bills,
+    });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
