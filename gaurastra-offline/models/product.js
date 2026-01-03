@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const { v4: uuidv4 } = require("uuid");
+
 
 // Variant Schema (each variant must have its own QR)
 const VariantSchema = new mongoose.Schema({
@@ -11,6 +11,7 @@ const VariantSchema = new mongoose.Schema({
 
   color: { type: String, required: true },
   size: { type: String, required: true },
+  fabric:{ type: String },
 
   stock: { type: Number, default: 0, min: 0 },
 

@@ -280,6 +280,7 @@ exports.updateProduct = async (req, res) => {
         // -------------------------
         if (existingVariant) {
           existingVariant.color = variantData.color ?? existingVariant.color;
+          existingVariant.fabric = variantData.fabric ?? existingVariant.fabric;
           existingVariant.size = variantData.size ?? existingVariant.size;
           existingVariant.stock = variantData.stock ?? existingVariant.stock;
           existingVariant.actual_price =
@@ -313,6 +314,7 @@ exports.updateProduct = async (req, res) => {
           variant_unique_id: newVariantId,
           color: variantData.color,
           size: variantData.size,
+          fabric: variantData.fabric,
           stock: variantData.stock || 0,
           actual_price: variantData.actual_price,
           offer: variantData.offer || 0,
@@ -371,6 +373,7 @@ exports.updateSingleVariant = async (req, res) => {
     if (data.color !== undefined) variant.color = data.color;
     if (data.size !== undefined) variant.size = data.size;
     if (data.stock !== undefined) variant.stock = data.stock;
+    if (data.fabric !== undefined) variant.fabric = data.fabric;
     if (data.actual_price !== undefined)
       variant.actual_price = data.actual_price;
     if (data.offer !== undefined) variant.offer = data.offer;
