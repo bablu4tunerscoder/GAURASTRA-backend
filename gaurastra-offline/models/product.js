@@ -11,7 +11,7 @@ const VariantSchema = new mongoose.Schema({
 
   color: { type: String, required: true },
   size: { type: String, required: true },
-  fabric:{ type: String },
+  fabric: { type: String, default: "" },
 
   stock: { type: Number, default: 0, min: 0 },
 

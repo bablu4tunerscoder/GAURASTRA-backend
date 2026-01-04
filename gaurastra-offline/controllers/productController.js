@@ -8,6 +8,7 @@ const { pagination_ } = require("../../utilities/pagination_");
 
 const variantSchema = Joi.object({
   color: Joi.string().required(),
+  fabric: Joi.string(),
   size: Joi.string().required(),
   stock: Joi.number().min(0).default(0),
   actual_price: Joi.number().min(0).required(),
@@ -46,6 +47,8 @@ exports.createProduct = async (req, res) => {
   try {
     const { error, value } = productValidationSchema.validate(req.body);
 
+   
+
     if (error) {
       return res.status(400).json({
         success: false,
@@ -53,6 +56,8 @@ exports.createProduct = async (req, res) => {
         error: error.details[0].message,
       });
     }
+
+     
 
     // 🔹 Product unique id
     const product_unique_id = uuidv4();
@@ -106,6 +111,7 @@ exports.createProduct = async (req, res) => {
     });
 
   } catch (err) {
+ 
     return res.status(500).json({
       success: false,
       error: err.message,
