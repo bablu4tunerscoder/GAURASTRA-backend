@@ -43,6 +43,7 @@ const allowedOrigins = [
   "https://www.pilot9522.gaurastra.com",
   "https://test.gaurastra.com",
   "https://testpanel.gaurastra.com",
+  "http://192.168.1.10:3000",
 ];
 
 // Security Headers Middleware

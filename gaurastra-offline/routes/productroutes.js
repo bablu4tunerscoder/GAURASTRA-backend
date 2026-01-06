@@ -23,6 +23,7 @@ router.get("/:productId/variant/:variantId", productCtrl.getProductByUniqIdVaria
 router.put("/update/:id", productCtrl.updateProduct);
 router.delete("/delete/:id" , productCtrl.deleteProduct);
 router.put("/update-variant/p/:productId/v/:variantId", productCtrl.updateSingleVariant);
+router.put("/print-done/:id", productCtrl.printDone);
 
 
 

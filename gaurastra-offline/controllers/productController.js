@@ -5,6 +5,8 @@ const { v4: uuidv4 } = require("uuid");
 const { upload_qr_image } = require("../offline_utils/uploadImage");
 const { generateQRCode } = require("../offline_utils/generateBarcod");
 const { pagination_ } = require("../../utilities/pagination_");
+const mongoose = require("mongoose");
+
 
 const variantSchema = Joi.object({
   color: Joi.string().required(),
@@ -431,6 +433,49 @@ exports.deleteProduct = async (req, res) => {
   }
 };
 
+exports.printDone = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 🔐 ObjectId validation
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid product id",
+      });
+    }
+
+    const product = await Product.findByIdAndUpdate(
+      id,
+      {
+        print: true,
+      },
+      { new: true }
+    );
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Print marked as done",
+      data: {
+        productId: product._id,
+        print: product.print,
+      },
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
 
 
 
