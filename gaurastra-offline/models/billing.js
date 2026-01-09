@@ -1,10 +1,11 @@
 const mongoose = require("mongoose");
 const { v4: uuidv4 } = require("uuid");
+const { generateBillingId } = require("../offline_utils/generateBillingId");
 
 // Single Billing Product
 const BillingItemSchema = new mongoose.Schema({
-  product_id: { type: String, required: true },  // UUID
-  variant_id: { type: String, required: true },  // UUID
+  product_id: { type: String, required: true },  
+  variant_id: { type: String, required: true },  
   title: String,
   price: Number,
   quantity: Number,
@@ -17,7 +18,6 @@ const BillingSchema = new mongoose.Schema(
     billing_id: {
       type: String,
       unique: true,
-      default: () => uuidv4(),
       index: true,
     },
 
@@ -55,4 +55,10 @@ const BillingSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+BillingSchema.pre("save", function (next) {
+  if (!this.billing_id) {
+    this.billing_id = generateBillingId();
+  }
+  next();
+});
 module.exports = mongoose.model("OfflineBilling", BillingSchema);
