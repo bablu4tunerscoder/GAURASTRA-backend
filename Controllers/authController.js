@@ -595,9 +595,12 @@ const forgotPasswordRequest = async (req, res) => {
 
     // TODO: Send email here
 
+    
+
     return res.status(200).json({
       status: "1",
       message: "Password reset link sent to your email, link expires in 30 minutes",
+      resetLink
     });
 
   } catch (error) {

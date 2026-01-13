@@ -7,7 +7,9 @@ const uploadProductMedia = async (req, res) => {
       return res.status(400).json({ message: "No files uploaded" });
     }
 
-    const mediaUrls = req.files.map((file) => file.path); 
+    // console.log(req.files);
+
+    const mediaUrls = req.files.media.map((file) => file.path);
 
     res.status(201).json({
       message: "Media uploaded successfully",
