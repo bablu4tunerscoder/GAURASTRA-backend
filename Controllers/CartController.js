@@ -11,6 +11,8 @@ const addToCart = async (req, res) => {
     const user = req.user;
     const { product_id, sku } = req.body;
 
+
+
     if (!product_id || !sku) {
       return res.status(400).json({
         success: false,
@@ -30,7 +32,7 @@ const addToCart = async (req, res) => {
     // 🔥 Try increment first
     let cart = await CartModel.findOneAndUpdate(
       {
-        user_id: user._id,
+        user_id: user.userid,
         "items.product_id": product_id,
         "items.sku": sku,
       },
@@ -41,7 +43,7 @@ const addToCart = async (req, res) => {
     // 🟢 If not found → push new item
     if (!cart) {
       cart = await CartModel.findOneAndUpdate(
-        { user_id: user._id },
+        { user_id: user.userid },
         {
           $push: {
             items: { product_id, sku, quantity: 1 },
@@ -69,7 +71,7 @@ const increaseCartItem = async (req, res) => {
 
     const cart = await CartModel.findOneAndUpdate(
       {
-        user_id: user._id,
+        user_id: user.userid,
         "items.product_id": product_id,
         "items.sku": sku,
       },
@@ -105,7 +107,7 @@ const decreaseCartItem = async (req, res) => {
     // 🔽 decrease if quantity > 1
     let cart = await CartModel.findOneAndUpdate(
       {
-        user_id: user._id,
+        user_id: user.userid,
         "items.product_id": product_id,
         "items.sku": sku,
         "items.quantity": { $gt: 1 },
@@ -117,7 +119,7 @@ const decreaseCartItem = async (req, res) => {
    
     if (!cart) {
       cart = await CartModel.findOneAndUpdate(
-        { user_id: user._id },
+        { user_id: user.userid },
         { $pull: { items: { product_id, sku } } },
         { new: true }
       );
@@ -139,7 +141,7 @@ const clearCart = async (req, res) => {
     const user = req.user;
 
     await CartModel.findOneAndUpdate(
-      { user_id: user._id },
+      { user_id: user.userid },
       { $set: { items: [] } }
     );
 
@@ -157,7 +159,7 @@ const getCart = async (req, res) => {
   try {
     const user = req.user;
 
-    const cart = await CartModel.findOne({ user_id: user._id }).lean();
+    const cart = await CartModel.findOne({ user_id: user.userid }).lean();
 
     if (!cart || !cart.items?.length) {
       return res.status(200).json({

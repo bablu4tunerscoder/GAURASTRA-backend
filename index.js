@@ -26,6 +26,8 @@ const leadRoutes = require('./Routes/leadRoutes');
 const ratingRoutes = require('./Routes/ratingRoutes');
 const assignRoutes = require('./Routes/assignRoutes');
 const googleAnalyticsRoutes = require('./Routes/GoogleAnalyticsRoutes');
+const cartRouter = require('./Routes/cartRoutes');
+const wishlistRoutes = require('./Routes/wishlistRoutes');
 
 const RootRoutesOffline = require('./gaurastra-offline/routes/root');
 const { home_get_controller } = require("./Controllers/HomeController");
@@ -125,6 +127,11 @@ app.use('/api/rating', ratingRoutes);
 app.use("/api/assign/",assignRoutes );
 app.use("/api/ga/", googleAnalyticsRoutes);
 app.use("/api/home", home_get_controller);
+app.use("/api/home", home_get_controller);
+app.use("/api/cart", cartRouter);
+app.use("/api/wishlist", wishlistRoutes);
+
+
 
 app.use("/api/offline", RootRoutesOffline);
 

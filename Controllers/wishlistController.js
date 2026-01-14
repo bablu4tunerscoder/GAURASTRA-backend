@@ -14,15 +14,17 @@ const addToWishlist = async (req, res) => {
     const { product_id, sku } = req.body;
     const user = req.user;
 
+   
+
     if (!product_id) {
       return res.status(400).json({ success: false, message: "product_id is required" });
     }
 
-    let wishlist = await Wishlist.findOne({ user_id: user._id });
+    let wishlist = await Wishlist.findOne({ user_id: user.userid });
 
     if (!wishlist) {
       wishlist = await Wishlist.create({
-        user_id: user._id,
+        user_id: user.userid,
         products: [{ product_id, sku: sku || null }]
       });
 
@@ -62,7 +64,7 @@ const removeFromWishlist = async (req, res) => {
     }
 
     const wishlist = await Wishlist.findOneAndUpdate(
-      { user_id: user._id },
+      { user_id: user.userid },
       { $pull: { products: { product_id } } },
       { new: true }
     );
@@ -93,7 +95,7 @@ const clearWishlist = async (req, res) => {
     const user = req.user;
 
     await Wishlist.findOneAndUpdate(
-      { user_id: user._id },
+      { user_id: user.userid },
       { $set: { products: [] } }
     );
 
@@ -121,7 +123,7 @@ const getWishlist = async (req, res) => {
     });
 
     const wishlist = await Wishlist.findOne(
-      { user_id: user._id },
+      { user_id: user.userid },
       { products: 1 }
     ).lean();
 
