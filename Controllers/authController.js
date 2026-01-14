@@ -22,6 +22,8 @@ const register = async (req, res) => {
   try {
     const { name, email, phone, password, address, role } = req.body;
 
+    console.log(name, email, phone, password, address, role);
+
     // 🔹 Check duplicate
     const existingUser = await User.findOne({ $or: [{ email }, { phone }] });
     if (existingUser) {
