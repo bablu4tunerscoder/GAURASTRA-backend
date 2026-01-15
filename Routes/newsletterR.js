@@ -1,5 +1,5 @@
 const express = require("express");
-const newsletterController = require("../Controllers/NewsletterController");
+const newsletterController = require("../Controllers/newsletterC");
 const { authCheck, permissionCheck } = require("../utilities/JWTAuth");
 
 const router = express.Router();

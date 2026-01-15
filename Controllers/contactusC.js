@@ -1,4 +1,4 @@
-const ContactUs = require("../Models/ContactUsModel");
+const ContactUs = require("../Models/contactusM");
 const { pagination_ } = require("../utilities/pagination_");
 
 // ✅ Create Contact (User side)

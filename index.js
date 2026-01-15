@@ -28,8 +28,8 @@ const assignRoutes = require('./Routes/assignRoutes');
 const googleAnalyticsRoutes = require('./Routes/GoogleAnalyticsRoutes');
 const cartRouter = require('./Routes/cartRoutes');
 const wishlistRoutes = require('./Routes/wishlistRoutes');
-const newsletterRoutes = require('./Routes/newsletterRouter');
-const contactRoutes = require('./Routes/contactusRouter');
+const newsletterRoutes = require('./Routes/newsletterR');
+const contactRoutes = require('./Routes/contactusR');
 
 const RootRoutesOffline = require('./gaurastra-offline/routes/root');
 const { home_get_controller } = require("./Controllers/HomeController");

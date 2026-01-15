@@ -1,4 +1,4 @@
-const Newsletter = require("../Models/NewsLetterModel");
+const Newsletter = require("../Models/newsletterM");
 const { pagination_ } = require("../utilities/pagination_");
 
 

@@ -1,5 +1,5 @@
 const express = require("express");
-const contactController = require("../Controllers/contactUsController");
+const contactController = require("../Controllers/contactusC");
 const { authCheck, permissionCheck } = require("../utilities/JWTAuth");
 
 
