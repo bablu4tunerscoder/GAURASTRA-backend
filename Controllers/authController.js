@@ -555,7 +555,6 @@ const googleAuth = async (req, res) => {
 };
 
 
-
 const forgotPasswordRequest = async (req, res) => {
   try {
     const { email } = req.body;
