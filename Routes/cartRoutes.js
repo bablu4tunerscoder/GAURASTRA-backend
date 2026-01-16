@@ -10,7 +10,7 @@ router.post("/increase-cart", authCheck, increaseCartItem);
 router.post("/decrease-cart", authCheck, decreaseCartItem);
 router.post("/clear-cart", authCheck, clearCart);
 router.get("/get-cart", authCheck, getCart);
-router.get("/add-bulk-cart", authCheck, addBulkCartItems);
+router.post("/add-bulk-cart", authCheck, addBulkCartItems);
 
 
 
