@@ -249,10 +249,22 @@ const getCart = async (req, res) => {
       totalDiscount += itemDiscount;
       totalQuantity += item.quantity;
 
+       const attributes = {
+        color:
+          item.attributes?.color ||
+          pricing.color ||
+          null,
+        size:
+          item.attributes?.size ||
+          pricing.size ||
+          null,
+      };
+
       return {
         product_id: product._id,
         sku: item.sku,
         quantity: item.quantity,
+        attributes,
 
         product_name: product.product_name,
         slug: product.slug,
@@ -293,10 +305,86 @@ const getCart = async (req, res) => {
 };
 
 
+const addBulkCartItems = async (req, res) => {
+  try {
+    const user = req.user;
+    const { items } = req.body;
+
+    // 🔹 Validation
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Items array is required",
+      });
+    }
+
+    // 🔹 Ensure cart exists
+    let cart = await CartModel.findOne({ user_id: user.userid });
+    if (!cart) {
+      cart = await CartModel.create({
+        user_id: user.userid,
+        items: [],
+      });
+    }
+
+    const updatedItems = [];
+
+    // 🔥 Process each item
+    for (const item of items) {
+      const { product_id, sku, quantity = 1 } = item;
+
+      if (!product_id || !sku || quantity <= 0) continue;
+
+      // Optional product check
+      const productExists = await Product.exists({ _id: product_id });
+      if (!productExists) continue;
+
+      // 🔍 Check if item exists in cart
+      const existingItem = cart.items.find(
+        (ci) =>
+          ci.product_id.toString() === product_id &&
+          ci.sku === sku
+      );
+
+      if (existingItem) {
+        // ➕ Increase quantity
+        existingItem.quantity += quantity;
+        updatedItems.push(existingItem);
+      } else {
+        // 🆕 Add new item
+        const newItem = {
+          product_id,
+          sku,
+          quantity,
+        };
+        cart.items.push(newItem);
+        updatedItems.push(newItem);
+      }
+    }
+
+    await cart.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Cart updated successfully",
+      items: updatedItems,   // ✅ array of updated objects
+      cart_id: cart._id,
+    });
+  } catch (error) {
+    console.error("Bulk cart update error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+
 module.exports = {
   addToCart,
   increaseCartItem,
   decreaseCartItem,
   clearCart,
-  getCart
+  getCart,
+  addBulkCartItems
 };

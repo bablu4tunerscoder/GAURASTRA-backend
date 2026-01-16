@@ -6,7 +6,7 @@ const router = express.Router();
 
 
 router.post(
-  "/newsletter",
+  "/subscribe",
   newsletterController.subscribeNewsletter
 );
 

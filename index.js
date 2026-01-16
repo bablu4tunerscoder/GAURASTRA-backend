@@ -32,7 +32,7 @@ const newsletterRoutes = require('./Routes/newsletterR');
 const contactRoutes = require('./Routes/contactusR');
 
 const RootRoutesOffline = require('./gaurastra-offline/routes/root');
-const { home_get_controller } = require("./Controllers/HomeController");
+const { home_get_controller, home_search } = require("./Controllers/HomeController");
 
 dotenv.config();
 connectDB();
@@ -129,7 +129,7 @@ app.use('/api/rating', ratingRoutes);
 app.use("/api/assign/",assignRoutes );
 app.use("/api/ga/", googleAnalyticsRoutes);
 app.use("/api/home", home_get_controller);
-app.use("/api/home", home_get_controller);
+app.use("/api/search", home_search);
 app.use("/api/cart", cartRouter);
 app.use("/api/wishlist", wishlistRoutes);
 app.use("/api/contact", contactRoutes);
