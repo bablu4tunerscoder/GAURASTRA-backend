@@ -99,25 +99,25 @@ const home_search = async (req, res) => {
 
     const regex = new RegExp(search, "i");
 
-    const categories = await Category.find({
-      status: "Active",
-      $or: [
-        { category_name: regex },
-        { category_description: regex },
-      ],
-    })
-      .limit(10)
-      .lean();
+    // const categories = await Category.find({
+    //   status: "Active",
+    //   $or: [
+    //     { category_name: regex },
+    //     { category_description: regex },
+    //   ],
+    // })
+    //   .limit(10)
+    //   .lean();
 
-    const subcategories = await SubCategory.find({
-      status: "Active",
-      $or: [
-        { subcategory_name: regex },
-        { subcategory_description: regex },
-      ],
-    })
-      .limit(10)
-      .lean();
+    // const subcategories = await SubCategory.find({
+    //   status: "Active",
+    //   $or: [
+    //     { subcategory_name: regex },
+    //     { subcategory_description: regex },
+    //   ],
+    // })
+    //   .limit(10)
+    //   .lean();
 
     let products = await Product.find({
       status: "Active",
@@ -127,33 +127,30 @@ const home_search = async (req, res) => {
         { "seo.metaTitle": regex },
       ],
     })
-      .limit(10)
+      .limit(20)
       .lean();
 
     products = await enrichProductListWithVariants(products, {});
 
-    const blogs = await BlogPost.find({
-      status: "Published",
-      $or: [
-        { title: regex },
-        { content: regex },
-        { "seo.meta_keywords": regex },
-        { "seo.page_title": regex },
-      ],
-    })
-      .sort({ publishedAt: -1 })
-      .limit(10)
-      .lean();
+    // const blogs = await BlogPost.find({
+    //   status: "Published",
+    //   $or: [
+    //     { title: regex },
+    //     { content: regex },
+    //     { "seo.meta_keywords": regex },
+    //     { "seo.page_title": regex },
+    //   ],
+    // })
+    //   .sort({ publishedAt: -1 })
+    //   .limit(10)
+    //   .lean();
 
     return res.status(200).json({
       status: "1",
       message: "Search results fetched successfully",
       data: {
         keyword: search,
-        categories,
-        subcategories,
         products,
-        blogs,
       },
     });
 

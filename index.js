@@ -31,9 +31,11 @@ const wishlistRoutes = require('./Routes/wishlistRoutes');
 const newsletterRoutes = require('./Routes/newsletterR');
 const contactRoutes = require('./Routes/contactusR');
 const homeRoutes = require('./Routes/homeRoutes');
+const userAddressRouter = require('./Routes/userAddressRouter');
+const checkoutRoutes = require('./Routes/checkoutRoutes');
 
 const RootRoutesOffline = require('./gaurastra-offline/routes/root');
-const { home_get_controller, home_search } = require("./Controllers/HomeController");
+
 
 dotenv.config();
 connectDB();
@@ -134,6 +136,8 @@ app.use("/api/cart", cartRouter);
 app.use("/api/wishlist", wishlistRoutes);
 app.use("/api/contact", contactRoutes);
 app.use("/api/newsletter", newsletterRoutes);
+app.use("/api/user-address", userAddressRouter);
+app.use("/api/checkout", checkoutRoutes);
 
 
 

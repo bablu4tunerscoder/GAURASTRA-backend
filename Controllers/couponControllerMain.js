@@ -1,20 +1,70 @@
 const UserCoupon = require("../Models/couponModelUser");
 const PublicCoupon = require("../Models/couponModelPublic");
-
+const CartModel = require("../Models/CartModel");
+const Pricing = require("../Models/ProductPricingModel");
 
 const suggestCoupons = async (req, res) => {
   try {
-    const { product_id, cartAmount } = req.body;
-
     const user = req.user;
 
-    const mobileNumber = user ? user.phone : null;
-
-    if (!product_id || !cartAmount) {
-      return res.status(400).json({
-        message: "product_id and cartAmount are required",
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
       });
     }
+
+    /* ===============================
+       1️⃣ FETCH USER CART
+    =============================== */
+
+    const cart = await CartModel.findOne({ user_id: user.userid }).lean();
+
+    if (!cart || !cart.items?.length) {
+      return res.status(200).json({
+        success: true,
+        availableCoupons: [],
+        message: "Cart is empty",
+      });
+    }
+
+    const productIds = cart.items.map(i => i.product_id);
+
+    /* ===============================
+       2️⃣ CALCULATE CART AMOUNT
+       (same logic as getCart – simplified)
+    =============================== */
+
+    const pricingList = await Pricing.find({
+      product_id: { $in: productIds },
+      is_active: true,
+    }).lean();
+
+    const pricingMap = {};
+    pricingList.forEach(p => {
+      const pid = p.product_id.toString();
+      pricingMap[pid] ??= {};
+      pricingMap[pid][p.sku] = p;
+    });
+
+    let cartAmount = 0;
+
+    cart.items.forEach(item => {
+      const pricing = pricingMap[item.product_id.toString()]?.[item.sku];
+      if (!pricing) return;
+
+      const originalPrice = pricing.original_price;
+      const discountedPrice =
+        pricing.discounted_price ??
+        originalPrice -
+          (originalPrice * (pricing.discount_percent || 0)) / 100;
+
+      cartAmount += discountedPrice * item.quantity;
+    });
+
+    /* ===============================
+       3️⃣ FETCH PUBLIC COUPONS
+    =============================== */
 
     const publicCoupons = await PublicCoupon.find({
       status: "Active",
@@ -23,8 +73,8 @@ const suggestCoupons = async (req, res) => {
       $and: [
         {
           $or: [
-            { allowedProducts: { $size: 0 } }, // ✅ all products
-            { allowedProducts: product_id },   // ✅ specific product
+            { allowedProducts: { $size: 0 } },          // all products
+            { allowedProducts: { $in: productIds } },  // cart products
           ],
         },
         {
@@ -39,14 +89,14 @@ const suggestCoupons = async (req, res) => {
       .lean();
 
     /* ===============================
-       2️⃣ FETCH USER PERSONAL COUPONS
+       4️⃣ FETCH USER COUPONS
     =============================== */
 
     let userCoupons = [];
 
-    if (mobileNumber) {
+    if (user.phone) {
       userCoupons = await UserCoupon.find({
-        mobileNumber,
+        mobileNumber: user.phone,
         status: "Active",
         minCartAmount: { $lte: cartAmount },
         $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }],
@@ -56,7 +106,7 @@ const suggestCoupons = async (req, res) => {
     }
 
     /* ===============================
-       3️⃣ FINAL RESPONSE
+       5️⃣ FINAL RESPONSE
     =============================== */
 
     const formatCoupon = (c, type) => ({
@@ -65,47 +115,92 @@ const suggestCoupons = async (req, res) => {
       discountValue: c.discountValue,
       expiresAt: c.expiresAt,
       minCartAmount: c.minCartAmount,
-      couponType: type, // ✅ PUBLIC / USER
+      couponType: type, 
     });
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
+      cartAmount,
       availableCoupons: [
-        ...userCoupons.map((c) => formatCoupon(c, "USER")),
-        ...publicCoupons.map((c) => formatCoupon(c, "PUBLIC")),
+        ...userCoupons.map(c => formatCoupon(c, "USER")),
+        ...publicCoupons.map(c => formatCoupon(c, "PUBLIC")),
       ],
     });
   } catch (err) {
     console.error("🔥 Suggest coupons error:", err);
-    res.status(500).json({
+    return res.status(500).json({
+      success: false,
       message: "Server error while fetching coupons",
     });
   }
 };
 
 
+
 const applyCoupon = async (req, res) => {
   try {
-    const { code, product_id, cartAmount } = req.body;
-
+    const { code } = req.body;
     const user = req.user;
-
     const user_id = user.userid;
 
-    if (!code || !cartAmount) {
-      return res.status(400).json({ message: "Missing required fields" });
+    if (!code) {
+      return res.status(400).json({ message: "Coupon code is required" });
     }
+
+
+    const cart = await CartModel.findOne({ user_id }).lean();
+
+    if (!cart || !cart.items?.length) {
+      return res.status(400).json({
+        message: "Cart is empty",
+      });
+    }
+
+    const productIds = cart.items.map(i => i.product_id);
+
+    /* ===============================
+       2️⃣ CALCULATE CART AMOUNT
+    =============================== */
+
+    const pricingList = await Pricing.find({
+      product_id: { $in: productIds },
+      is_active: true,
+    }).lean();
+
+    const pricingMap = {};
+    pricingList.forEach(p => {
+      const pid = p.product_id.toString();
+      pricingMap[pid] ??= {};
+      pricingMap[pid][p.sku] = p;
+    });
+
+    let cartAmount = 0;
+
+    cart.items.forEach(item => {
+      const pricing =
+        pricingMap[item.product_id.toString()]?.[item.sku];
+      if (!pricing) return;
+
+      const originalPrice = pricing.original_price;
+      const discountedPrice =
+        pricing.discounted_price ??
+        originalPrice -
+          (originalPrice * (pricing.discount_percent || 0)) / 100;
+
+      cartAmount += discountedPrice * item.quantity;
+    });
+
+    /* ===============================
+       3️⃣ TRY USER COUPON
+    =============================== */
 
     const userCoupon = await UserCoupon.findOne({
       code,
       mobileNumber: user.phone,
+      status: "Active",
     });
 
     if (userCoupon) {
-      if (userCoupon.status !== "Active") {
-        return res.status(400).json({ message: "Coupon already used or inactive" });
-      }
-
       if (userCoupon.expiresAt && userCoupon.expiresAt < new Date()) {
         return res.status(400).json({ message: "Coupon expired" });
       }
@@ -116,41 +211,41 @@ const applyCoupon = async (req, res) => {
         });
       }
 
-      // ✅ Calculate discount
       const discountAmount =
         userCoupon.discountType === "percentage"
           ? Math.min(
-            (cartAmount * userCoupon.discountValue) / 100,
-            cartAmount
-          )
+              (cartAmount * userCoupon.discountValue) / 100,
+              cartAmount
+            )
           : Math.min(userCoupon.discountValue, cartAmount);
 
-      // ✅ Mark used
+      // mark used
       userCoupon.status = "Used";
       userCoupon.user_id = user_id;
       userCoupon.usedAt = new Date();
       await userCoupon.save();
 
       return res.status(200).json({
+        success: true,
         type: "USER_COUPON",
+        code,
+        cartAmount,
         discountAmount,
         finalAmount: cartAmount - discountAmount,
-        code,
       });
     }
 
     /* ===============================
-       2️⃣ TRY PUBLIC COUPON
+       4️⃣ TRY PUBLIC COUPON
     =============================== */
 
-    const coupon = await PublicCoupon.findOne({ code });
+    const coupon = await PublicCoupon.findOne({
+      code,
+      status: "Active",
+    });
 
     if (!coupon) {
       return res.status(404).json({ message: "Coupon not found" });
-    }
-
-    if (coupon.status !== "Active") {
-      return res.status(400).json({ message: "Coupon inactive" });
     }
 
     if (coupon.expiresAt && coupon.expiresAt < new Date()) {
@@ -161,24 +256,26 @@ const applyCoupon = async (req, res) => {
       return res.status(400).json({ message: "Coupon usage limit reached" });
     }
 
-    // ✅ Per-user limit
+    // per-user limit
     const userUsageCount = coupon.usedBy.filter(
-      (u) => u.user.toString() === user_id
+      u => u.user.toString() === user_id
     ).length;
 
-    if (userUsageCount >= coupon.perUserLimit) {
-      return res.status(400).json({ message: "You already used this coupon" });
+    if (coupon.perUserLimit && userUsageCount >= coupon.perUserLimit) {
+      return res.status(400).json({
+        message: "You already used this coupon",
+      });
     }
 
-    // ✅ Product validation
+    // product validation (cart-based)
     if (
       coupon.allowedProducts.length > 0 &&
-      !coupon.allowedProducts.some(
-        (p) => p.toString() === product_id
+      !coupon.allowedProducts.some(p =>
+        productIds.some(pid => pid.toString() === p.toString())
       )
     ) {
       return res.status(400).json({
-        message: "Coupon not applicable for this product",
+        message: "Coupon not applicable for cart products",
       });
     }
 
@@ -188,13 +285,14 @@ const applyCoupon = async (req, res) => {
       });
     }
 
-    // ✅ Discount
     const discountAmount =
       coupon.discountType === "percentage"
-        ? Math.min((cartAmount * coupon.discountValue) / 100, cartAmount)
+        ? Math.min(
+            (cartAmount * coupon.discountValue) / 100,
+            cartAmount
+          )
         : Math.min(coupon.discountValue, cartAmount);
 
-    // ✅ Update usage
     await PublicCoupon.updateOne(
       { _id: coupon._id },
       {
@@ -204,16 +302,19 @@ const applyCoupon = async (req, res) => {
     );
 
     return res.status(200).json({
+      success: true,
       type: "PUBLIC_COUPON",
+      code,
+      cartAmount,
       discountAmount,
       finalAmount: cartAmount - discountAmount,
-      code,
     });
   } catch (err) {
-    console.error("Apply coupon error:", err);
-    res.status(500).json({ message: "Server error" });
+    console.error("🔥 Apply coupon error:", err);
+    return res.status(500).json({ message: "Server error" });
   }
 };
+
 
 module.exports = {
   applyCoupon,

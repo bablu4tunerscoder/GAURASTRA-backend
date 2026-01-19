@@ -4,7 +4,6 @@ const { authCheck, permissionCheck } = require("../utilities/JWTAuth");
 
 
 const {
- 
   suggestCoupons,
   applyCoupon,
 } = require("../Controllers/couponControllerMain");

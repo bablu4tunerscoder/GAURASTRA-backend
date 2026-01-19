@@ -4,13 +4,7 @@ const User = require("../Models/userModel");
 
 const { getGeolocation } = require("../utilities/geolocation");
 
-
-// const serviceAccount = require("../Config/serviceAccountKey.json");
-const serviceAccountProd = require("../Config/serviceAccountKeyProd.json");
-
-const jwt = require("jsonwebtoken");
 const { imageToWebp } = require("../Middlewares/upload/imageProcessor");
-
 
 // admin routes 
 const getAllUsers = async (req, res) => {
@@ -60,7 +54,6 @@ const getAllUsers = async (req, res) => {
     });
   }
 };
-
 
 // To get a single user by ID
 const getUserById = async (req, res) => {
@@ -141,8 +134,6 @@ const adminUpdateUser = async (req, res) => {
   }
 };
 
-
-// user routs 
 
 const getProfile = async (req, res) => {
   try {

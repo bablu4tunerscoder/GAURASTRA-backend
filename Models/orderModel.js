@@ -1,34 +1,68 @@
 const mongoose = require("mongoose");
 
+const deliveryAddress = {
+  name: {
+    type: String,
+    required: true,
+  },
+
+  phone: {
+    type: String,
+    required: true,
+  },
+
+  alternate_phone: String,
+
+  address_line1: {
+    type: String,
+    required: true,
+  },
+
+  address_line2: String,
+
+  landmark: String,
+
+  city: {
+    type: String,
+    required: true,
+  },
+
+  state: {
+    type: String,
+    required: true,
+  },
+
+  country: {
+    type: String,
+    default: "India",
+  },
+
+  pincode: {
+    type: String,
+    required: true,
+  },
+};
+
 const orderSchema = new mongoose.Schema(
   {
-    /* 🔗 User Reference + Snapshot */
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      index: true
+      index: true,
     },
 
     userSnapshot: {
       name: String,
       email: String,
-      phone: String
+      phone: String,
     },
 
-    /* 🚚 Delivery Address Snapshot */
     deliveryAddress: {
-      fullName: { type: String, required: true },
-      phone: { type: String, required: true },
-      street: { type: String, required: true },
-      landmark: String,
-      city: { type: String, required: true },
-      state: { type: String, required: true },
-      pincode: { type: String, required: true },
-      flatNumber: String,
+      type: deliveryAddress,
+      required: true,
     },
 
-    /* 🛒 Ordered Products (Multiple allowed) */
     products: [
       {
         product: {
@@ -64,32 +98,29 @@ const orderSchema = new mongoose.Schema(
       },
     ],
 
-
     totalOrderAmount: {
       type: Number,
-      required: true
+      required: true,
     },
 
     currency: {
       type: String,
-      default: "INR"
+      default: "INR",
     },
 
-    /* 💳 Payment */
     payment: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Payment",
-      default: null
+      default: null,
     },
 
     paymentStatus: {
       type: String,
       enum: ["Enquiry", "Pending", "Paid", "Failed"],
       default: "Enquiry",
-      index: true
+      index: true,
     },
 
-    /* 📦 Order Lifecycle */
     orderStatus: {
       type: String,
       enum: [
@@ -98,24 +129,22 @@ const orderSchema = new mongoose.Schema(
         "Dispatched",
         "Shipped",
         "Delivered",
-        "Cancelled"
+        "Cancelled",
       ],
       default: "Pending",
-      index: true
+      index: true,
     },
 
     statusHistory: [
       {
         status: String,
         changedAt: { type: Date, default: Date.now },
-        notes: String
-      }
+        notes: String,
+      },
     ],
-    
   },
-  { timestamps: true }
+  { timestamps: true },
 );
-
 
 orderSchema.pre("save", function (next) {
   if (this.isModified("orderStatus")) {
