@@ -2,18 +2,24 @@ const CartModel = require("../Models/CartModel");
 const checkoutModel = require("../Models/checkoutModel");
 const ProductPricingModel = require("../Models/ProductPricingModel");
 const UserAddress = require("../Models/userAddressModel");
+const UserCoupon = require("../Models/couponModelUser");
+const PublicCoupon = require("../Models/couponModelPublic");
+
 
 
 const createOrUpdateCheckout = async (req, res) => {
   try {
     const user_id = req.user.userid;
-    const { coupon } = req.body;
+    const user = req.user;
+    const { coupon } = req.body; 
 
-   
- const defaultAddress = await UserAddress.findOne({ user_id })
-  .sort({ updatedAt: -1 })
-  .select("_id")
-  .lean();
+    /* ===============================
+       0️⃣ DEFAULT ADDRESS
+    =============================== */
+    const defaultAddress = await UserAddress.findOne({ user_id })
+      .sort({ updatedAt: -1 })
+      .select("_id")
+      .lean();
 
     /* ===============================
        1️⃣ FETCH CART
@@ -72,10 +78,107 @@ const createOrUpdateCheckout = async (req, res) => {
       .filter(Boolean);
 
     /* ===============================
-       3️⃣ PRICE DETAILS
+       3️⃣ COUPON RE-VALIDATION (BACKEND)
     =============================== */
-    const discount = coupon?.discountAmount || 0;
+    let discount = 0;
+    let appliedCoupon = null;
 
+    if (coupon?.code) {
+      const code = coupon.code;
+
+      /* ---- TRY USER COUPON ---- */
+      const userCoupon = await UserCoupon.findOne({
+        code,
+        mobileNumber: user.phone,
+        status: "Active",
+      });
+
+      if (userCoupon) {
+        if (userCoupon.expiresAt && userCoupon.expiresAt < new Date()) {
+          return res.status(400).json({ message: "Coupon expired" });
+        }
+
+        if (subtotal < userCoupon.minCartAmount) {
+          return res.status(400).json({
+            message: `Minimum cart ₹${userCoupon.minCartAmount} required`,
+          });
+        }
+
+        discount =
+          userCoupon.discountType === "percentage"
+            ? Math.min(
+                (subtotal * userCoupon.discountValue) / 100,
+                subtotal
+              )
+            : Math.min(userCoupon.discountValue, subtotal);
+
+        appliedCoupon = {
+          code,
+          type: "USER_COUPON",
+          discount,
+        };
+      } else {
+        /* ---- TRY PUBLIC COUPON ---- */
+        const publicCoupon = await PublicCoupon.findOne({
+          code,
+          status: "Active",
+        });
+
+        if (!publicCoupon) {
+          return res.status(400).json({ message: "Invalid coupon code" });
+        }
+
+        if (publicCoupon.expiresAt && publicCoupon.expiresAt < new Date()) {
+          return res.status(400).json({ message: "Coupon expired" });
+        }
+
+        if (
+          publicCoupon.usageLimit &&
+          publicCoupon.usageCount >= publicCoupon.usageLimit
+        ) {
+          return res.status(400).json({
+            message: "Coupon usage limit reached",
+          });
+        }
+
+        const userUsageCount = publicCoupon.usedBy.filter(
+          u => u.user.toString() === user_id
+        ).length;
+
+        if (
+          publicCoupon.perUserLimit &&
+          userUsageCount >= publicCoupon.perUserLimit
+        ) {
+          return res.status(400).json({
+            message: "You already used this coupon",
+          });
+        }
+
+        if (subtotal < publicCoupon.minCartAmount) {
+          return res.status(400).json({
+            message: `Minimum cart ₹${publicCoupon.minCartAmount} required`,
+          });
+        }
+
+        discount =
+          publicCoupon.discountType === "percentage"
+            ? Math.min(
+                (subtotal * publicCoupon.discountValue) / 100,
+                subtotal
+              )
+            : Math.min(publicCoupon.discountValue, subtotal);
+
+        appliedCoupon = {
+          code,
+          type: "PUBLIC_COUPON",
+          discount,
+        };
+      }
+    }
+
+    /* ===============================
+       4️⃣ PRICE DETAILS
+    =============================== */
     const price_details = {
       subtotal,
       discount,
@@ -84,7 +187,7 @@ const createOrUpdateCheckout = async (req, res) => {
     };
 
     /* ===============================
-       4️⃣ UPSERT CHECKOUT
+       5️⃣ UPSERT CHECKOUT
     =============================== */
     const checkout = await checkoutModel.findOneAndUpdate(
       { user_id, status: "ACTIVE" },
@@ -92,7 +195,7 @@ const createOrUpdateCheckout = async (req, res) => {
         user_id,
         cart_items,
         price_details,
-        coupon,
+        coupon: appliedCoupon,
         address_id: defaultAddress?._id || null,
         expiresAt: new Date(Date.now() + 15 * 60 * 1000),
       },
@@ -109,6 +212,7 @@ const createOrUpdateCheckout = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
 
 const updateCheckoutAddress = async (req, res) => {
   try {

@@ -7,208 +7,39 @@ const PublicCoupon = require("../Models/couponModelPublic");
 const Product = require("../Models/ProductModel");
 const { pagination_ } = require("../utilities/pagination_");
 const CartModel = require("../Models/CartModel");
-const Pricing = require("../Models/ProductPricingModel");
+
 const ProductStock = require("../Models/ProductStockModel");
-
-
-exports.applyCheckoutCoupon = async (req, res) => {
-  try {
-    /* ===============================
-       STEP 1️⃣ BASIC INPUT
-       =============================== */
-
-    const userId = req.user._id;
-    const { coupon_code } = req.body;
-
-    if (!coupon_code) {
-      return res.status(400).json({
-        success: false,
-        message: "Coupon code is required",
-      });
-    }
-
-    /* ===============================
-       STEP 2️⃣ USER & CART
-       =============================== */
-
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
-
-    const cart = await CartModel.findOne({ user_id: userId });
-    if (!cart || cart.items.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Cart is empty",
-      });
-    }
-
-    /* ===============================
-       STEP 3️⃣ CART TOTAL (SKU BASED)
-       =============================== */
-
-    let totalAmount = 0;
-
-    for (const item of cart.items) {
-      // pricing SKU se hi niklegi
-      const pricing = await Pricing.findOne({
-        product_id: item.product_id,
-        sku: item.sku,
-        is_active: true,
-      });
-
-      if (!pricing) {
-        return res.status(400).json({
-          success: false,
-          message: `Pricing not found for SKU ${item.sku}`,
-        });
-      }
-
-      const price =
-        pricing.discounted_price ?? pricing.original_price;
-
-      totalAmount += price * item.quantity;
-    }
-
-    /* ===============================
-       STEP 4️⃣ COUPON CHECK
-       =============================== */
-
-    let discountAmount = 0;
-    let couponType = null;
-
-    /* ---------- 4.1 USER COUPON ---------- */
-    const userCoupon = await UserCoupon.findOne({
-      code: coupon_code,
-      mobileNumber: user.phone,
-      status: "Active",
-    });
-
-    if (userCoupon) {
-      if (userCoupon.expiresAt && userCoupon.expiresAt < new Date()) {
-        return res.status(400).json({
-          success: false,
-          message: "Coupon expired",
-        });
-      }
-
-      if (totalAmount < userCoupon.minCartAmount) {
-        return res.status(400).json({
-          success: false,
-          message: `Minimum cart ₹${userCoupon.minCartAmount} required`,
-        });
-      }
-
-      discountAmount =
-        userCoupon.discountType === "percentage"
-          ? Math.min(
-              (totalAmount * userCoupon.discountValue) / 100,
-              totalAmount
-            )
-          : Math.min(userCoupon.discountValue, totalAmount);
-
-      couponType = "USER_COUPON";
-    } else {
-      /* ---------- 4.2 PUBLIC COUPON ---------- */
-
-      const publicCoupon = await PublicCoupon.findOne({
-        code: coupon_code,
-        status: "Active",
-      });
-
-      if (!publicCoupon) {
-        return res.status(404).json({
-          success: false,
-          message: "Invalid coupon code",
-        });
-      }
-
-      if (
-        publicCoupon.expiresAt &&
-        publicCoupon.expiresAt < new Date()
-      ) {
-        return res.status(400).json({
-          success: false,
-          message: "Coupon expired",
-        });
-      }
-
-      if (
-        publicCoupon.usageLimit &&
-        publicCoupon.usageCount >= publicCoupon.usageLimit
-      ) {
-        return res.status(400).json({
-          success: false,
-          message: "Coupon usage limit reached",
-        });
-      }
-
-      const userUsageCount = publicCoupon.usedBy.filter(
-        (u) => u.user.toString() === userId.toString()
-      ).length;
-
-      if (userUsageCount >= publicCoupon.perUserLimit) {
-        return res.status(400).json({
-          success: false,
-          message: "You already used this coupon",
-        });
-      }
-
-      if (totalAmount < publicCoupon.minCartAmount) {
-        return res.status(400).json({
-          success: false,
-          message: `Minimum cart ₹${publicCoupon.minCartAmount} required`,
-        });
-      }
-
-      discountAmount =
-        publicCoupon.discountType === "percentage"
-          ? Math.min(
-              (totalAmount * publicCoupon.discountValue) / 100,
-              totalAmount
-            )
-          : Math.min(publicCoupon.discountValue, totalAmount);
-
-      couponType = "PUBLIC_COUPON";
-    }
-
-    /* ===============================
-       STEP 5️⃣ RESPONSE (NO DB UPDATE)
-       =============================== */
-
-    return res.status(200).json({
-      success: true,
-      couponType,
-      coupon_code,
-      totalAmount,
-      discountAmount,
-      payableAmount: Math.max(totalAmount - discountAmount, 0),
-    });
-  } catch (error) {
-    console.error("Apply Coupon Error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-    });
-  }
-};
-
+const checkoutModel = require("../Models/checkoutModel");
+const userAddressModel = require("../Models/userAddressModel");
+const { generateOrderId } = require("../utilities/generateOrderId");
 
 // Create New Order
 exports.createOrder = async (req, res) => {
   try {
+    const userId = req.user.userid;
+
     /* ===============================
-       STEP 1️⃣ USER FETCH
-       =============================== */
+       1️⃣ FETCH CHECKOUT
+    =============================== */
+    const checkout = await checkoutModel
+      .findOne({
+        user_id: userId,
+        status: "ACTIVE",
+        expiresAt: { $gt: new Date() },
+      })
+      .lean();
 
-    const userId = req.user._id;
-    const { deliveryAddress, coupon_code } = req.body;
+    if (!checkout) {
+      return res.status(400).json({
+        success: false,
+        message: "Checkout expired or not found",
+      });
+    }
 
-    const user = await User.findById(userId);
+    /* ===============================
+       2️⃣ FETCH USER
+    =============================== */
+    const user = await User.findById(userId).lean();
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -217,246 +48,56 @@ exports.createOrder = async (req, res) => {
     }
 
     /* ===============================
-       STEP 2️⃣ DELIVERY ADDRESS CHECK
-       =============================== */
-
-    const requiredFields = [
-      "fullName",
-      "phone",
-      "street",
-      "city",
-      "state",
-      "pincode",
-    ];
-
-    for (const field of requiredFields) {
-      if (!deliveryAddress?.[field]) {
-        return res.status(400).json({
-          success: false,
-          message: `Delivery address ${field} is required`,
-        });
-      }
-    }
-
-    /* ===============================
-       STEP 3️⃣ CART FETCH
-       =============================== */
-
-    const cart = await CartModel.findOne({ user_id: userId });
-
-    if (!cart || cart.items.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Cart is empty",
-      });
-    }
-
-    /* ===============================
-       STEP 4️⃣ CART → ORDER PRODUCTS
-       (SKU BASED LOGIC)
-       =============================== */
-
-    let orderProducts = [];
-    let totalOrderAmount = 0; // 🔑 coupon se pehle ka total
-
-    for (const item of cart.items) {
-      /* ---- PRODUCT ---- */
-      const product = await Product.findById(item.product_id).lean();
-      if (!product) {
-        return res.status(404).json({
-          success: false,
-          message: "Product not found",
-        });
-      }
-
-      /* ---- STOCK (SKU BASED) ---- */
+       3️⃣ FINAL STOCK CHECK & REDUCE
+    =============================== */
+    for (const item of checkout.cart_items) {
       const stockDoc = await ProductStock.findOne({
         product_id: item.product_id,
         sku: item.sku,
         is_available: true,
       });
 
-      if (!stockDoc) {
+      if (!stockDoc || stockDoc.stock_quantity < item.quantity) {
         return res.status(400).json({
           success: false,
-          message: `Invalid or unavailable SKU ${item.sku}`,
+          message: `Stock not available for SKU ${item.sku}`,
         });
       }
 
-      if (stockDoc.stock_quantity < item.quantity) {
-        return res.status(400).json({
-          success: false,
-          message: `Insufficient stock for ${product.product_name} (${item.sku})`,
-        });
-      }
-
-      /* ---- PRICING (SKU BASED) ---- */
-      const pricing = await Pricing.findOne({
-        product_id: item.product_id,
-        sku: item.sku,
-        is_active: true,
-      });
-
-      if (!pricing) {
-        return res.status(400).json({
-          success: false,
-          message: `Pricing not found for SKU ${item.sku}`,
-        });
-      }
-
-      const price =
-        pricing.discounted_price ?? pricing.original_price;
-
-      const itemTotal = price * item.quantity;
-
-      /* ---- ORDER SNAPSHOT ---- */
-      orderProducts.push({
-        product: product._id,
-        sku: item.sku,
-
-        snapshot: {
-          name: product.product_name,
-          price,
-          size: stockDoc.attributes?.size || null,
-          color: stockDoc.attributes?.color || null,
-        },
-
-        quantity: item.quantity,
-        totalPrice: itemTotal,
-      });
-
-      totalOrderAmount += itemTotal;
-
-      /* ---- STOCK REDUCE ---- */
       stockDoc.stock_quantity -= item.quantity;
       if (stockDoc.stock_quantity === 0) {
         stockDoc.is_available = false;
       }
-
       await stockDoc.save();
     }
 
     /* ===============================
-       STEP 5️⃣ COUPON VALIDATION
-       (USER COUPON → PUBLIC COUPON)
-       =============================== */
+       4️⃣ CREATE ORDER (CHECKOUT SNAPSHOT)
+    =============================== */
+    const orderProducts = checkout.cart_items.map((item) => ({
+      product: item.product_id,
+      sku: item.sku,
 
-    let discountAmount = 0;
-    let appliedUserCoupon = null;
-    let appliedPublicCoupon = null;
+      snapshot: {
+        name: item.name, // checkout cart me name already hai
+        price: item.price.discounted_price ?? item.price.original_price,
+        size: item.size || null, // optional, agar checkout me add kiya ho
+        color: item.color || null, // optional, agar checkout me add kiya ho
+      },
 
+      quantity: item.quantity,
+      totalPrice: item.item_total,
+    }));
 
-    if (coupon_code) {
-      /* ---------- 5.1 TRY USER COUPON ---------- */
-      const userCoupon = await UserCoupon.findOne({
-        code: coupon_code,
-        mobileNumber: user.phone,
-        status: "Active",
-      });
-
-      if (userCoupon) {
-        // expiry check
-        if (userCoupon.expiresAt && userCoupon.expiresAt < new Date()) {
-          return res.status(400).json({
-            success: false,
-            message: "Coupon expired",
-          });
-        }
-
-        // min cart check
-        if (totalOrderAmount < userCoupon.minCartAmount) {
-          return res.status(400).json({
-            success: false,
-            message: `Minimum cart ₹${userCoupon.minCartAmount} required`,
-          });
-        }
-
-        // discount calculate
-        discountAmount =
-          userCoupon.discountType === "percentage"
-            ? Math.min(
-                (totalOrderAmount * userCoupon.discountValue) / 100,
-                totalOrderAmount
-              )
-            : Math.min(userCoupon.discountValue, totalOrderAmount);
-
-        appliedUserCoupon = userCoupon;
-      } else {
-        /* ---------- 5.2 TRY PUBLIC COUPON ---------- */
-        const publicCoupon = await PublicCoupon.findOne({
-          code: coupon_code,
-          status: "Active",
-        });
-
-        if (!publicCoupon) {
-          return res.status(400).json({
-            success: false,
-            message: "Invalid coupon code",
-          });
-        }
-
-        if (
-          publicCoupon.expiresAt &&
-          publicCoupon.expiresAt < new Date()
-        ) {
-          return res.status(400).json({
-            success: false,
-            message: "Coupon expired",
-          });
-        }
-
-        if (
-          publicCoupon.usageLimit &&
-          publicCoupon.usageCount >= publicCoupon.usageLimit
-        ) {
-          return res.status(400).json({
-            success: false,
-            message: "Coupon usage limit reached",
-          });
-        }
-
-        // per user limit
-        const userUsageCount = publicCoupon.usedBy.filter(
-          (u) => u.user.toString() === userId.toString()
-        ).length;
-
-        if (userUsageCount >= publicCoupon.perUserLimit) {
-          return res.status(400).json({
-            success: false,
-            message: "You already used this coupon",
-          });
-        }
-
-        if (totalOrderAmount < publicCoupon.minCartAmount) {
-          return res.status(400).json({
-            success: false,
-            message: `Minimum cart ₹${publicCoupon.minCartAmount} required`,
-          });
-        }
-
-        discountAmount =
-          publicCoupon.discountType === "percentage"
-            ? Math.min(
-                (totalOrderAmount * publicCoupon.discountValue) / 100,
-                totalOrderAmount
-              )
-            : Math.min(publicCoupon.discountValue, totalOrderAmount);
-
-        appliedPublicCoupon = publicCoupon;
-      }
-    }
-
-    const payableAmount = Math.max(
-      totalOrderAmount - discountAmount,
-      0
-    );
-
-    /* ===============================
-       STEP 6️⃣ CREATE ORDER
-       =============================== */
+    // deliveryAddress ko UserAddress se fetch karke object banaye
+    const deliveryAddress = await userAddressModel.findById(
+      checkout.address_id,
+    ).lean();
 
     const order = await Order.create({
       user: userId,
+
+      order_id: generateOrderId(),
 
       userSnapshot: {
         name: user.name,
@@ -464,49 +105,56 @@ exports.createOrder = async (req, res) => {
         phone: user.phone,
       },
 
-      deliveryAddress,
-      products: orderProducts,
+      deliveryAddress, 
+      products: orderProducts, 
 
-      totalOrderAmount: payableAmount,
+      totalOrderAmount: checkout.price_details.total_amount,
       currency: "INR",
 
-      paymentStatus: "Enquiry",
+      paymentStatus: "Pending",
       orderStatus: "Pending",
     });
 
     /* ===============================
-       STEP 7️⃣ MARK COUPON USED
-       =============================== */
-
-    if (appliedUserCoupon) {
-      appliedUserCoupon.status = "Used";
-      appliedUserCoupon.user_id = userId;
-      appliedUserCoupon.usedAt = new Date();
-      await appliedUserCoupon.save();
-    }
-
-    if (appliedPublicCoupon) {
-      await PublicCoupon.updateOne(
-        { _id: appliedPublicCoupon._id },
-        {
-          $inc: { usageCount: 1 },
-          $push: {
-            usedBy: {
-              user: userId,
+       5️⃣ MARK COUPON USED (FINAL LOCK)
+    =============================== */
+    if (checkout.coupon?.code) {
+      if (checkout.coupon.couponType === "USER_COUPON") {
+        await UserCoupon.updateOne(
+          { code: checkout.coupon.code, status: "Active" },
+          {
+            $set: {
+              status: "Used",
+              user_id: userId,
               usedAt: new Date(),
-              orderId: order._id,
             },
           },
-        }
-      );
+        );
+      }
+
+      if (checkout.coupon.couponType === "PUBLIC_COUPON") {
+        await PublicCoupon.updateOne(
+          { code: checkout.coupon.code },
+          {
+            $inc: { usageCount: 1 },
+            $push: {
+              usedBy: {
+                user: userId,
+                orderId: order._id,
+                usedAt: new Date(),
+              },
+            },
+          },
+        );
+      }
     }
 
     /* ===============================
-       STEP 8️⃣ CLEAR CART
-       =============================== */
+       6️⃣ CLEAR CART & CHECKOUT
+    =============================== */
+    await CartModel.updateOne({ user_id: userId }, { $set: { items: [] } });
 
-    cart.items = [];
-    await cart.save();
+    await checkoutModel.deleteOne({ _id: checkout._id });
 
     return res.status(201).json({
       success: true,
@@ -523,14 +171,13 @@ exports.createOrder = async (req, res) => {
   }
 };
 
-
 // Get order details with payment information by order_id
 exports.getOrderWithPayment = async (req, res) => {
   try {
     const { order_id } = req.params;
 
     // Find the order
-    const order = await Order.findOne({ order_id }).lean();
+    const order = await Order.findById(order_id).lean();
     if (!order) {
       return res.status(404).json({
         success: false,
@@ -539,7 +186,7 @@ exports.getOrderWithPayment = async (req, res) => {
     }
 
     // Find the associated payment
-    const payment = await Payment.findOne({ order_id });
+    const payment = await Payment.findOne({ order:order_id });
 
     // Combine the data
     const response = {
@@ -548,7 +195,7 @@ exports.getOrderWithPayment = async (req, res) => {
         ...order.toObject(),
         createdAtIST: new Date(order.createdAt).toLocaleString("en-IN", {
           timeZone: "Asia/Kolkata",
-        }), // ✅ Include IST time in details
+        }), 
       },
       payment: payment ? payment.toObject() : null,
     };
@@ -567,50 +214,38 @@ exports.getOrderWithPayment = async (req, res) => {
 // Get all orders with their payment status (for admin dashboard)
 exports.getAllOrdersWithPayments = async (req, res) => {
   try {
-    // Extract pagination props
+   
     const { page, limit, skip, hasPrevPage } = pagination_(req.query, {
       defaultLimit: 10,
       maxLimit: 20,
     });
 
-    // Fetch orders with pagination
+   
     const [orders, totalRecords] = await Promise.all([
       Order.find()
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(limit),
-
+        .limit(limit)
+        .populate("payment"), 
       Order.countDocuments(),
     ]);
 
-    // Extract order IDs
-    const orderIds = orders.map((order) => order.order_id);
 
-    // Fetch all payments for these orders
-    const payments = await Payment.find({ order_id: { $in: orderIds } });
-
-    // Create quick payment lookup map
-    const paymentMap = {};
-    payments.forEach((payment) => {
-      paymentMap[payment.order_id] = payment;
-    });
-
-    // Merge orders + payments
     const ordersWithPayments = orders.map((order) => ({
       ...order.toObject(),
       createdAtIST: new Date(order.createdAt).toLocaleString("en-IN", {
         timeZone: "Asia/Kolkata",
       }),
-      payment: paymentMap[order.order_id] || null,
+      // payment is already included via populate
     }));
 
+  
     const totalPages = Math.ceil(totalRecords / limit);
     const hasNextPage = page < totalPages;
 
-    // Response
+    
     res.status(200).json({
       success: true,
-
       pagination: {
         page,
         limit,
@@ -619,7 +254,6 @@ exports.getAllOrdersWithPayments = async (req, res) => {
         hasPrevPage,
         hasNextPage,
       },
-
       orders: ordersWithPayments,
     });
   } catch (error) {
@@ -631,7 +265,6 @@ exports.getAllOrdersWithPayments = async (req, res) => {
     });
   }
 };
-
 
 // get order and payment details merged together using user_id
 exports.getDetailswithUser = async (req, res) => {
@@ -645,75 +278,46 @@ exports.getDetailswithUser = async (req, res) => {
       });
     }
 
-    // 1️⃣ Get all orders
-    const orders = await Order.find({ "user.user_id": user_id }).lean();
+    // 1️⃣ Fetch orders + populate products + payment
+    const orders = await Order.find({ user: user_id })
+      .populate({
+        path: "products.product",
+        select: "-product_details", // avoid heavy details if not needed
+      })
+      .populate({
+        path: "payment",
+        select: "-__v",
+      })
+      .lean();
 
-    if (orders.length === 0) {
+    if (!orders.length) {
       return res.status(404).json({
         success: false,
         message: `No orders found for user_id: ${user_id}`,
       });
     }
 
-    // 2️⃣ Extract order_ids
-    const orderIds = orders.map((o) => o.order_id);
-
-    // 3️⃣ Fetch payments
-    const payments = await Payment.find({ order_id: { $in: orderIds } }).lean();
-    const paymentMap = Object.fromEntries(
-      payments.map((p) => [p.order_id, p])
-    );
-
-    // 4️⃣ Extract unique product_ids
-    const productIds = [
-      ...new Set(
-        orders.flatMap((o) =>
-          o.products.map((p) => p.product_id)
-        )
-      ),
-    ];
-
-    // 5️⃣ Fetch ALL product details
-    const products = await Product.find({
-      product_id: { $in: productIds },
-    }).select('-product_details').lean();
-
-    const productDetailMap = Object.fromEntries(
-      products.map((p) => [p.product_id, p])
-    );
-
-    // 6️⃣ Fetch primary images
-    const productImages = await ProductImg.find({
-      product_id: { $in: productIds },
-      is_primary: true,
-    }).lean();
-
-    const imageMap = Object.fromEntries(
-      productImages.map((img) => [img.product_id, img.image_url])
-    );
-
-    // 7️⃣ Merge everything
+    // 2️⃣ Add IST date formatting
     const enrichedOrders = orders.map((order) => ({
-      order: {
-        ...order,
-        createdAtIST: new Date(order.createdAt).toLocaleString("en-IN", {
-          timeZone: "Asia/Kolkata",
-        }),
-        products: order.products.map((p) => ({
-          ...p,
-          product_image: imageMap[p.product_id] || null,
-          product_details: productDetailMap[p.product_id] || null,  // ✅ FULL product details
-        })),
-      },
-      payment: paymentMap[order.order_id] || null,
+      ...order,
+      createdAtIST: new Date(order.createdAt).toLocaleString("en-IN", {
+        timeZone: "Asia/Kolkata",
+      }),
+      products: order.products.map((p) => ({
+        ...p,
+        product_snapshot: p.snapshot, // keep snapshot
+        sku: p.sku,
+        product_details: p.product || null, // populated product details
+      })),
     }));
 
     return res.status(200).json({
       success: true,
-      message: "Orders + payments + product full details fetched",
+      message: "Orders with products and payments fetched",
       data: enrichedOrders,
     });
   } catch (error) {
+    console.error("Error fetching orders with user:", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
@@ -721,7 +325,6 @@ exports.getDetailswithUser = async (req, res) => {
     });
   }
 };
-
 
 exports.updateOrderStatus = async (req, res) => {
   try {
@@ -740,7 +343,8 @@ exports.updateOrderStatus = async (req, res) => {
       return res.status(400).json({ error: "Invalid order_status value." });
     }
 
-    const order = await Order.findOne({ order_id });
+    const order = await Order.findById(order_id);
+
     if (!order) {
       return res.status(404).json({ error: "Order not found." });
     }
@@ -754,14 +358,14 @@ exports.updateOrderStatus = async (req, res) => {
       timeStyle: "short",
     });
 
-    order.status_history.push({
+    order.statusHistory.push({
       status: order_status,
-      changed_at: now, // keep raw UTC timestamp for DB
-      notes: `${order_status} on ${istDateTime}`, // store human-readable IST
+      changed_at: now, 
+      notes: `${order_status} on ${istDateTime}`, 
     });
 
-    // Update main order_status
-    order.order_status = order_status;
+    
+    order.statusHistory = order_status;
     await order.save();
 
     res
@@ -778,24 +382,32 @@ exports.deleteOrder = async (req, res) => {
   try {
     const { order_id } = req.params;
 
-    // Check if order exists
-    const order = await Order.findOne({ order_id });
-    if (!order) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Order not found" });
+    if (!order_id) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing order_id parameter",
+      });
     }
 
-    // Delete the order
-    await Order.deleteOne({ order_id });
+    // 1️⃣ Find order by order_id (user readable) or _id (MongoDB)
+    const order = await Order.findById(order_id);
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
 
-    // (Optional) If you also want to remove payment when order is deleted
-    await Payment.deleteOne({ order_id });
+    // 2️⃣ Delete the order
+    await Order.deleteOne({ _id: order._id });
+
+    // 3️⃣ Delete related payment if exists
+    await Payment.deleteOne({ order: order._id });
 
     res.status(200).json({
       success: true,
       message: "Order deleted successfully",
-      order_id,
+      order_id: order.order_id,
     });
   } catch (error) {
     console.error("Error deleting order:", error);

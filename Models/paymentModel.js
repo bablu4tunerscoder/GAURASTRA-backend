@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 const paymentSchema = new mongoose.Schema(
   {
-    /* 🔗 Order Reference */
+    
     order: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Order",
@@ -10,7 +10,7 @@ const paymentSchema = new mongoose.Schema(
       index: true
     },
 
-    /* 💰 Amount Info */
+   
     amount: {
       type: Number,
       required: true
@@ -21,7 +21,7 @@ const paymentSchema = new mongoose.Schema(
       default: "INR"
     },
 
-    /* 💳 Gateway Info */
+    
     paymentGateway: {
       type: String,
       default: "PhonePe",

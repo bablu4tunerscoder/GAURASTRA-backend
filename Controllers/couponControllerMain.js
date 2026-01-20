@@ -147,20 +147,15 @@ const applyCoupon = async (req, res) => {
       return res.status(400).json({ message: "Coupon code is required" });
     }
 
-
     const cart = await CartModel.findOne({ user_id }).lean();
-
     if (!cart || !cart.items?.length) {
-      return res.status(400).json({
-        message: "Cart is empty",
-      });
+      return res.status(400).json({ message: "Cart is empty" });
     }
 
-    const productIds = cart.items.map(i => i.product_id);
-
     /* ===============================
-       2️⃣ CALCULATE CART AMOUNT
+       CALCULATE CART AMOUNT
     =============================== */
+    const productIds = cart.items.map(i => i.product_id);
 
     const pricingList = await Pricing.find({
       product_id: { $in: productIds },
@@ -169,9 +164,8 @@ const applyCoupon = async (req, res) => {
 
     const pricingMap = {};
     pricingList.forEach(p => {
-      const pid = p.product_id.toString();
-      pricingMap[pid] ??= {};
-      pricingMap[pid][p.sku] = p;
+      pricingMap[p.product_id.toString()] ??= {};
+      pricingMap[p.product_id.toString()][p.sku] = p;
     });
 
     let cartAmount = 0;
@@ -181,19 +175,18 @@ const applyCoupon = async (req, res) => {
         pricingMap[item.product_id.toString()]?.[item.sku];
       if (!pricing) return;
 
-      const originalPrice = pricing.original_price;
-      const discountedPrice =
+      const price =
         pricing.discounted_price ??
-        originalPrice -
-          (originalPrice * (pricing.discount_percent || 0)) / 100;
+        pricing.original_price -
+          (pricing.original_price *
+            (pricing.discount_percent || 0)) / 100;
 
-      cartAmount += discountedPrice * item.quantity;
+      cartAmount += price * item.quantity;
     });
 
     /* ===============================
-       3️⃣ TRY USER COUPON
+       TRY USER COUPON (PREVIEW)
     =============================== */
-
     const userCoupon = await UserCoupon.findOne({
       code,
       mobileNumber: user.phone,
@@ -219,12 +212,6 @@ const applyCoupon = async (req, res) => {
             )
           : Math.min(userCoupon.discountValue, cartAmount);
 
-      // mark used
-      userCoupon.status = "Used";
-      userCoupon.user_id = user_id;
-      userCoupon.usedAt = new Date();
-      await userCoupon.save();
-
       return res.status(200).json({
         success: true,
         type: "USER_COUPON",
@@ -236,27 +223,30 @@ const applyCoupon = async (req, res) => {
     }
 
     /* ===============================
-       4️⃣ TRY PUBLIC COUPON
+       TRY PUBLIC COUPON (PREVIEW)
     =============================== */
-
     const coupon = await PublicCoupon.findOne({
       code,
       status: "Active",
     });
 
     if (!coupon) {
-      return res.status(404).json({ message: "Coupon not found" });
+      return res.status(404).json({ message: "Invalid coupon code" });
     }
 
     if (coupon.expiresAt && coupon.expiresAt < new Date()) {
       return res.status(400).json({ message: "Coupon expired" });
     }
 
-    if (coupon.usageLimit && coupon.usageCount >= coupon.usageLimit) {
-      return res.status(400).json({ message: "Coupon usage limit reached" });
+    if (
+      coupon.usageLimit &&
+      coupon.usageCount >= coupon.usageLimit
+    ) {
+      return res.status(400).json({
+        message: "Coupon usage limit reached",
+      });
     }
 
-    // per-user limit
     const userUsageCount = coupon.usedBy.filter(
       u => u.user.toString() === user_id
     ).length;
@@ -264,18 +254,6 @@ const applyCoupon = async (req, res) => {
     if (coupon.perUserLimit && userUsageCount >= coupon.perUserLimit) {
       return res.status(400).json({
         message: "You already used this coupon",
-      });
-    }
-
-    // product validation (cart-based)
-    if (
-      coupon.allowedProducts.length > 0 &&
-      !coupon.allowedProducts.some(p =>
-        productIds.some(pid => pid.toString() === p.toString())
-      )
-    ) {
-      return res.status(400).json({
-        message: "Coupon not applicable for cart products",
       });
     }
 
@@ -293,14 +271,6 @@ const applyCoupon = async (req, res) => {
           )
         : Math.min(coupon.discountValue, cartAmount);
 
-    await PublicCoupon.updateOne(
-      { _id: coupon._id },
-      {
-        $inc: { usageCount: 1 },
-        $push: { usedBy: { user: user_id, usedAt: new Date() } },
-      }
-    );
-
     return res.status(200).json({
       success: true,
       type: "PUBLIC_COUPON",
@@ -310,7 +280,7 @@ const applyCoupon = async (req, res) => {
       finalAmount: cartAmount - discountAmount,
     });
   } catch (err) {
-    console.error("🔥 Apply coupon error:", err);
+    console.error("Apply coupon error:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };

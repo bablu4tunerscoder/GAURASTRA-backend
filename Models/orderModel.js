@@ -52,6 +52,13 @@ const orderSchema = new mongoose.Schema(
       index: true,
     },
 
+    order_id: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true,
+    },
+
     userSnapshot: {
       name: String,
       email: String,

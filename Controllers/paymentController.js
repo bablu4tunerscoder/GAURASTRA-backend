@@ -56,8 +56,6 @@ async function updatePaymentAndOrder(
   return paymentDoc;
 }
 
-
-
 exports.initiatePayment = async (req, res) => {
   try {
   
@@ -171,8 +169,6 @@ exports.initiatePayment = async (req, res) => {
   }
 };
 
-
-
 // PhonePe callback handler
 exports.paymentCallback = async (req, res) => {
   try {
@@ -245,7 +241,6 @@ exports.handleSuccess = async (req, res) => {
   }
 };
 
-
 // Handle payment failure redirect
 exports.handleFailure = async (req, res) => {
   try {
@@ -283,7 +278,6 @@ exports.handleFailure = async (req, res) => {
     );
   }
 };
-
 
 // Verify payment by merchantTransactionId
 exports.verifyPayment = async (req, res) => {
@@ -333,7 +327,6 @@ exports.verifyPayment = async (req, res) => {
     });
   }
 };
-
 
 // Initiate refund
 exports.initiateRefund = async (req, res) => {
