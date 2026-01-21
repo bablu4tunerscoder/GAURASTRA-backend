@@ -25,14 +25,14 @@ router.get(
 
 
 router.put(
-  "/update_address/:address_id",
+  "/update-address/:address_id",
   authCheck,
   updateAddress
 );
 
 
 router.delete(
-  "/delete_address/:address_id",
+  "/delete-address/:address_id",
   authCheck,
   deleteAddress
 );

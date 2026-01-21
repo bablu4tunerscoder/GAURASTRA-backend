@@ -39,6 +39,7 @@ exports.createOrder = async (req, res) => {
     /* ===============================
        2️⃣ FETCH USER
     =============================== */
+    
     const user = await User.findById(userId).lean();
     if (!user) {
       return res.status(404).json({

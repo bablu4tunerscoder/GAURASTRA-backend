@@ -4,14 +4,13 @@ const ProductImage = require("../Models/ProductImgModel");
 const Pricing = require("../Models/ProductPricingModel");
 const ProductStock = require("../Models/ProductStockModel");
 const CartModel = require("../Models/CartModel");
+const buildCartItems = require("../utilities/buildCartItems");
 
 
 const addToCart = async (req, res) => {
   try {
     const user = req.user;
     const { product_id, sku } = req.body;
-
-
 
     if (!product_id || !sku) {
       return res.status(400).json({
@@ -176,123 +175,13 @@ const getCart = async (req, res) => {
     }
 
 
-    const productIds = cart.items.map(i => i.product_id);
-
-    const [products, pricingList, stocks, images] = await Promise.all([
-      Product.find({ _id: { $in: productIds } }).lean(),
-
-      Pricing.find({
-        product_id: { $in: productIds },
-        is_active: true,
-      }).lean(),
-
-      ProductStock.find({ product_id: { $in: productIds } }).lean(),
-
-      ProductImage.find({ product_id: { $in: productIds } })
-        .sort({ is_primary: -1 })
-        .lean(),
-    ]);
-
-    /* ---------- MAPS ---------- */
-    const productMap = Object.fromEntries(
-      products.map(p => [p._id.toString(), p])
-    );
-
-    const pricingMap = {};
-    pricingList.forEach(p => {
-      const pid = p.product_id.toString();
-      pricingMap[pid] ??= {};
-      pricingMap[pid][p.sku] = p;
-    });
-
-    const imageMap = {};
-    images.forEach(img => {
-      const pid = img.product_id.toString();
-      imageMap[pid] ??= {};
-      imageMap[pid][img.sku] ??= [];
-      imageMap[pid][img.sku].push({
-        _id: img._id,
-        image_url: img.image_url,
-        is_primary: img.is_primary,
-      });
-    });
-
-    /* ---------- TOTALS ---------- */
-    let subtotal = 0;
-    let totalDiscount = 0;
-    let totalQuantity = 0;
-
-    /* ---------- BUILD CART ITEMS ---------- */
-    const cartItems = cart.items.map(item => {
-      const pid = item.product_id.toString();
-      const product = productMap[pid];
-      if (!product) return null;
-
-      const pricing = pricingMap[pid]?.[item.sku] || null;
-
-      if (!pricing) {
-        // SKU mismatch safety
-        return null;
-      }
-
-      const originalPrice = pricing.original_price;
-      const discountedPrice =
-        pricing.discounted_price ??
-        originalPrice -
-          (originalPrice * (pricing.discount_percent || 0)) / 100;
-
-      const itemSubtotal = discountedPrice * item.quantity;
-      const itemDiscount =
-        (originalPrice - discountedPrice) * item.quantity;
-
-      subtotal += itemSubtotal;
-      totalDiscount += itemDiscount;
-      totalQuantity += item.quantity;
-
-       const attributes = {
-        color:
-          item.attributes?.color ||
-          pricing.color ||
-          null,
-        size:
-          item.attributes?.size ||
-          pricing.size ||
-          null,
-      };
-
-      return {
-        product_id: product._id,
-        sku: item.sku,
-        quantity: item.quantity,
-        attributes,
-
-        product_name: product.product_name,
-        slug: product.slug,
-        brand: product.brand,
-
-        price: {
-          original_price: originalPrice,
-          discounted_price: discountedPrice,
-          discount_percent: pricing.discount_percent || 0,
-        },
-
-        item_total: itemSubtotal,
-
-        images: imageMap[pid]?.[item.sku] || [],
-      };
-    }).filter(Boolean);
-
-    /* ---------- RESPONSE ---------- */
+    const items = cart?.items || [];
+    const { cartItems, cartSummary } = await buildCartItems(items);
+  
     return res.status(200).json({
       success: true,
       data: cartItems,
-      cart_summary: {
-        total_items: cartItems.length,
-        total_quantity: totalQuantity,
-        subtotal,
-        total_discount: totalDiscount,
-        total_amount: subtotal,
-      },
+      cart_summary: cartSummary
     });
   } catch (error) {
     console.error("Get cart error:", error);

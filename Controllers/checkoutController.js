@@ -4,6 +4,7 @@ const ProductPricingModel = require("../Models/ProductPricingModel");
 const UserAddress = require("../Models/userAddressModel");
 const UserCoupon = require("../Models/couponModelUser");
 const PublicCoupon = require("../Models/couponModelPublic");
+const buildCartItems = require("../utilities/buildCartItems");
 
 
 
@@ -295,11 +296,15 @@ const getActiveCheckout = async (req, res) => {
       is_selected: selectedAddressId === addr._id.toString(),
     }));
 
+    const { cartItems, cartSummary } = await buildCartItems(checkout.cart_items || []);
+
     res.status(200).json({
       success: true,
       data: {
         checkout,
         addresses: addressesWithSelection,
+        cart_items: cartItems,
+        // cart_summary: cartSummary,
       },
     });
   } catch (err) {
