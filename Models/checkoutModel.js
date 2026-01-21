@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 const checkoutSchema = new mongoose.Schema(
   {
-    user_id: {
+    user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
@@ -78,17 +78,8 @@ const checkoutSchema = new mongoose.Schema(
         default: null,
     },
 
-    status: {
-      type: String,
-      enum: ["ACTIVE", "EXPIRED", "COMPLETED"],
-      default: "ACTIVE",
-    },
+    status: ["ACTIVE", "EXPIRED", "COMPLETED"]
 
-    expiresAt: {
-      type: Date,
-      default: () => new Date(Date.now() + 15 * 60 * 1000), 
-      index: { expires: 0 }, 
-    },
   },
   {
     timestamps: true,

@@ -6,13 +6,11 @@ const UserCoupon = require("../Models/couponModelUser");
 const PublicCoupon = require("../Models/couponModelPublic");
 const buildCartItems = require("../utilities/buildCartItems");
 
-
-
 const createOrUpdateCheckout = async (req, res) => {
   try {
     const user_id = req.user.userid;
     const user = req.user;
-    const { coupon } = req.body; 
+    const { coupon } = req.body;
 
     /* ===============================
        0️⃣ DEFAULT ADDRESS
@@ -31,7 +29,7 @@ const createOrUpdateCheckout = async (req, res) => {
       return res.status(400).json({ message: "Cart is empty" });
     }
 
-    const productIds = cart.items.map(i => i.product_id);
+    const productIds = cart.items.map((i) => i.product_id);
 
     /* ===============================
        2️⃣ FETCH PRICING
@@ -42,7 +40,7 @@ const createOrUpdateCheckout = async (req, res) => {
     }).lean();
 
     const pricingMap = {};
-    pricingList.forEach(p => {
+    pricingList.forEach((p) => {
       const pid = p.product_id.toString();
       pricingMap[pid] ??= {};
       pricingMap[pid][p.sku] = p;
@@ -51,16 +49,14 @@ const createOrUpdateCheckout = async (req, res) => {
     let subtotal = 0;
 
     const cart_items = cart.items
-      .map(item => {
-        const pricing =
-          pricingMap[item.product_id.toString()]?.[item.sku];
+      .map((item) => {
+        const pricing = pricingMap[item.product_id.toString()]?.[item.sku];
         if (!pricing) return null;
 
         const price =
           pricing.discounted_price ??
           pricing.original_price -
-            (pricing.original_price *
-              (pricing.discount_percent || 0)) / 100;
+            (pricing.original_price * (pricing.discount_percent || 0)) / 100;
 
         const item_total = price * item.quantity;
         subtotal += item_total;
@@ -107,16 +103,13 @@ const createOrUpdateCheckout = async (req, res) => {
 
         discount =
           userCoupon.discountType === "percentage"
-            ? Math.min(
-                (subtotal * userCoupon.discountValue) / 100,
-                subtotal
-              )
+            ? Math.min((subtotal * userCoupon.discountValue) / 100, subtotal)
             : Math.min(userCoupon.discountValue, subtotal);
 
         appliedCoupon = {
           code,
           couponType: "USER_COUPON",
-          discountAmount:discount,
+          discountAmount: discount,
         };
       } else {
         /* ---- TRY PUBLIC COUPON ---- */
@@ -143,7 +136,7 @@ const createOrUpdateCheckout = async (req, res) => {
         }
 
         const userUsageCount = publicCoupon.usedBy.filter(
-          u => u.user.toString() === user_id
+          (u) => u.user.toString() === user_id,
         ).length;
 
         if (
@@ -163,10 +156,7 @@ const createOrUpdateCheckout = async (req, res) => {
 
         discount =
           publicCoupon.discountType === "percentage"
-            ? Math.min(
-                (subtotal * publicCoupon.discountValue) / 100,
-                subtotal
-              )
+            ? Math.min((subtotal * publicCoupon.discountValue) / 100, subtotal)
             : Math.min(publicCoupon.discountValue, subtotal);
 
         appliedCoupon = {
@@ -190,23 +180,19 @@ const createOrUpdateCheckout = async (req, res) => {
     /* ===============================
        5️⃣ UPSERT CHECKOUT
     =============================== */
-    const checkout = await checkoutModel.findOneAndUpdate(
-      { user_id, status: "ACTIVE" },
-      {
-        user_id,
-        cart_items,
-        price_details,
-        coupon: appliedCoupon,
-        address_id: defaultAddress?._id || null,
-        expiresAt: new Date(Date.now() + 15 * 60 * 1000),
-      },
-      { new: true, upsert: true }
-    );
+    const checkout = await checkoutModel.create({
+      user: user_id,
+      cart_items,
+      price_details,
+      coupon: appliedCoupon || null,
+      status: "ACTIVE",
+      address_id: defaultAddress?._id || null,
+    });
 
     return res.status(200).json({
       success: true,
-      message: "Checkout created / updated",
-      data: checkout,
+      message: "Checkout created",
+      data: checkout._id,
     });
   } catch (err) {
     console.error("Checkout create error:", err);
@@ -214,13 +200,12 @@ const createOrUpdateCheckout = async (req, res) => {
   }
 };
 
-
 const updateCheckoutAddress = async (req, res) => {
   try {
     const user_id = req.user.userid;
-    const { address_id } = req.body;
+    const { address_id, checkout_id } = req.body;
 
-  const address = await UserAddress.findOne({
+    const address = await UserAddress.findOne({
       _id: address_id,
       user_id,
     }).lean();
@@ -230,7 +215,7 @@ const updateCheckoutAddress = async (req, res) => {
     }
 
     const checkout = await checkoutModel.findOneAndUpdate(
-      { user_id, status: "ACTIVE" },
+      { _id: checkout_id, status: "ACTIVE" },
       { address_id },
       { new: true },
     );
@@ -248,14 +233,14 @@ const updateCheckoutAddress = async (req, res) => {
 const updateCheckoutPaymentMethod = async (req, res) => {
   try {
     const user_id = req.user.userid;
-    const { payment_method } = req.body;
+    const { payment_method, checkout_id } = req.body;
 
     if (!["COD", "ONLINE"].includes(payment_method)) {
       return res.status(400).json({ message: "Invalid payment method" });
     }
 
     const checkout = await checkoutModel.findOneAndUpdate(
-      { user_id, status: "ACTIVE" },
+      { _id: checkout_id, status: "ACTIVE" },
       { payment_method },
       { new: true },
     );
@@ -273,14 +258,29 @@ const updateCheckoutPaymentMethod = async (req, res) => {
 const getActiveCheckout = async (req, res) => {
   try {
     const user_id = req.user.userid;
+    const checkoutId = req.query.checkoutId;
 
-    const checkout = await checkoutModel.findOne({
-      user_id,
-      status: "ACTIVE",
-    }).lean();
+    const TWO_HOUR = 120 * 60 * 1000;
+    const expiryTime = new Date(Date.now() - TWO_HOUR);
+
+    const checkout = await checkoutModel
+      .findOne({
+        _id: checkoutId,
+        status: "ACTIVE",
+        createdAt: { $gte: expiryTime },
+      })
+      .lean();
 
     if (!checkout) {
-      return res.status(404).json({ message: "No active checkout" });
+      await checkoutModel.updateOne(
+        { _id: checkoutId, status: "ACTIVE" },
+        { $set: { status: "EXPIRED" } },
+      );
+
+      return res.status(404).json({
+        success: false,
+        message: "Checkout expired or not found",
+      });
     }
 
     const addresses = await UserAddress.find({ user_id })
@@ -296,7 +296,9 @@ const getActiveCheckout = async (req, res) => {
       is_selected: selectedAddressId === addr._id.toString(),
     }));
 
-    const { cartItems, cartSummary } = await buildCartItems(checkout.cart_items || []);
+    const { cartItems, cartSummary } = await buildCartItems(
+      checkout.cart_items || [],
+    );
 
     res.status(200).json({
       success: true,

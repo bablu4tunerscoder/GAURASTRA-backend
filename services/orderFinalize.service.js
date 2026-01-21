@@ -36,23 +36,23 @@ exports.finalizeOrderAfterPayment = async (orderId) => {
   /* ===============================
      2️⃣ MARK COUPON USED
   =============================== */
-  if (order.coupon?.code) {
-    if (order.coupon.couponType === "USER_COUPON") {
+  if (order.couponSnapshot?.code) {
+    if (order.couponSnapshot.couponType === "USER") {
       await UserCoupon.updateOne(
-        { code: order.coupon.code, status: "Active" },
+        { code: order.couponSnapshot.code, status: "Active" },
         {
           $set: {
             status: "Used",
             user_id: order.user,
             usedAt: new Date(),
           },
-        }
+        },
       );
     }
 
-    if (order.coupon.couponType === "PUBLIC_COUPON") {
+    if (order.couponSnapshot.couponType === "PUBLIC") {
       await PublicCoupon.updateOne(
-        { code: order.coupon.code },
+        { code: order.couponSnapshot.code },
         {
           $inc: { usageCount: 1 },
           $push: {
@@ -62,7 +62,7 @@ exports.finalizeOrderAfterPayment = async (orderId) => {
               usedAt: new Date(),
             },
           },
-        }
+        },
       );
     }
   }
@@ -70,20 +70,15 @@ exports.finalizeOrderAfterPayment = async (orderId) => {
   /* ===============================
      3️⃣ CLEAR CART & CHECKOUT
   =============================== */
-  await CartModel.updateOne(
-    { user_id: order.user },
-    { $set: { items: [] } }
-  );
+  await CartModel.updateOne({ user_id: order.user }, { $set: { items: [] } });
 
-  await checkoutModel.deleteMany({ user_id: order.user });
+  await checkoutModel.deleteMany({ user: order.user });
 
   /* ===============================
      4️⃣ CONFIRM ORDER
   =============================== */
   order.orderStatus = "CONFIRMED";
   order.deliveryStatus = "NOT_DISPATCHED";
-
- 
 
   await order.save();
 

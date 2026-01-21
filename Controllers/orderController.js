@@ -1,52 +1,49 @@
 const Order = require("../Models/orderModel");
 const Payment = require("../Models/paymentModel");
 const User = require("../Models/userModel");
-const ProductImg = require("../Models/ProductImgModel");
-const UserCoupon = require("../Models/couponModelUser");
-const PublicCoupon = require("../Models/couponModelPublic");
-const Product = require("../Models/ProductModel");
 const { pagination_ } = require("../utilities/pagination_");
-const CartModel = require("../Models/CartModel");
-
 const ProductStock = require("../Models/ProductStockModel");
 const checkoutModel = require("../Models/checkoutModel");
 const userAddressModel = require("../Models/userAddressModel");
 const { generateOrderId } = require("../utilities/generateOrderId");
 
+
+
 // Create New Order
 exports.createOrder = async (req, res) => {
   try {
     const userId = req.user.userid;
+    const user = req.user;
+     const { checkout_id } = req.body;
 
     /* ===============================
        1️⃣ FETCH CHECKOUT
     =============================== */
+
+  const TWO_HOUR = 120 * 60 * 1000;
+  const expiryTime = new Date(Date.now() - TWO_HOUR);
+
     const checkout = await checkoutModel
       .findOne({
-        user_id: userId,
+        _id:checkout_id,
         status: "ACTIVE",
-        expiresAt: { $gt: new Date() },
+        createdAt: { $gte: expiryTime },
       })
       .lean();
 
-    if (!checkout) {
-      return res.status(400).json({
-        success: false,
-        message: "Checkout expired or not found",
-      });
-    }
-
-    /* ===============================
-       2️⃣ FETCH USER
-    =============================== */
+     if (!checkout) {
+          await checkoutModel.updateOne(
+            { _id: checkout_id, status: "ACTIVE" },
+            { $set: { status: "EXPIRED" } },
+          );
     
-    const user = await User.findById(userId).lean();
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
+          return res.status(404).json({
+            success: false,
+            message: "Checkout expired or not found",
+          });
+      }
+
+  
 
     /* ===============================
        3️⃣ FINAL STOCK CHECK & REDUCE
@@ -65,11 +62,7 @@ exports.createOrder = async (req, res) => {
         });
       }
 
-      // stockDoc.stock_quantity -= item.quantity;
-      // if (stockDoc.stock_quantity === 0) {
-      //   stockDoc.is_available = false;
-      // }
-      // await stockDoc.save();
+     
     }
 
     /* ===============================
@@ -106,6 +99,7 @@ exports.createOrder = async (req, res) => {
         phone: user.phone,
       },
 
+      couponSnapshot: checkout.coupon || null,
       deliveryAddress, 
       products: orderProducts, 
 
@@ -115,46 +109,7 @@ exports.createOrder = async (req, res) => {
       orderStatus: "CREATED",
     });
 
-    /* ===============================
-       5️⃣ MARK COUPON USED (FINAL LOCK)
-    =============================== */
-    // if (checkout.coupon?.code) {
-    //   if (checkout.coupon.couponType === "USER_COUPON") {
-    //     await UserCoupon.updateOne(
-    //       { code: checkout.coupon.code, status: "Active" },
-    //       {
-    //         $set: {
-    //           status: "Used",
-    //           user_id: userId,
-    //           usedAt: new Date(),
-    //         },
-    //       },
-    //     );
-    //   }
-
-    //   if (checkout.coupon.couponType === "PUBLIC_COUPON") {
-    //     await PublicCoupon.updateOne(
-    //       { code: checkout.coupon.code },
-    //       {
-    //         $inc: { usageCount: 1 },
-    //         $push: {
-    //           usedBy: {
-    //             user: userId,
-    //             orderId: order._id,
-    //             usedAt: new Date(),
-    //           },
-    //         },
-    //       },
-    //     );
-    //   }
-    // }
-
-    /* ===============================
-       6️⃣ CLEAR CART & CHECKOUT
-    =============================== */
-    // await CartModel.updateOne({ user_id: userId }, { $set: { items: [] } });
-
-    // await checkoutModel.deleteOne({ _id: checkout._id });
+  
 
     return res.status(201).json({
       success: true,
@@ -162,6 +117,7 @@ exports.createOrder = async (req, res) => {
       orderId: order._id,
       order,
     });
+    
   } catch (error) {
     console.error("Create Order Error:", error);
     return res.status(500).json({
@@ -425,8 +381,6 @@ exports.updateDeliveryStatus = async (req, res) => {
     });
   }
 };
-
-
 
 // Delete order by order_id
 exports.deleteOrder = async (req, res) => {

@@ -18,7 +18,7 @@ router.post(
 );
 
 router.get(
-  "/get-checkout",
+  "/get-checkout/:checkoutId",
   authCheck,
   getActiveCheckout
 );

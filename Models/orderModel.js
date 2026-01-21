@@ -105,6 +105,14 @@ const orderSchema = new mongoose.Schema(
       },
     ],
 
+    couponSnapshot: {
+      code: String,
+      discountAmount: Number,
+      couponType: {
+        type: String,
+        enum: ["USER", "PUBLIC"]
+      }
+    },
     totalOrderAmount: {
       type: Number,
       required: true,
