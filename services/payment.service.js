@@ -6,33 +6,14 @@ const {
   ORDER_STATUS,
 } = require("../constants/payment.constants");
 
-/* ======================================================
-   CREATE PAYMENT (ON ORDER)
-====================================================== */
-exports.createPayment = async ({ order }) => {
-  const payment = await Payment.create({
-    order: order._id,
-    user: order.user,
-    amount: order.payableAmount,
-    paymentStatus: PAYMENT_STATUS.INITIATED,
-    paymentStatusHistory: [
-      {
-        status: PAYMENT_STATUS.INITIATED,
-        source: "SYSTEM",
-      },
-    ],
-  });
+const ProductStock = require("../Models/ProductStockModel");
+const checkoutModel = require("../Models/checkoutModel");
+const CartModel = require("../Models/CartModel");
+const UserCoupon = require("../Models/couponModelUser");
+const PublicCoupon = require("../Models/couponModelPublic");
 
-  order.payment = payment._id;
-  order.orderStatus = ORDER_STATUS.PAYMENT_INITIATED;
-  await order.save();
 
-  return payment;
-};
 
-/* ======================================================
-   SYNC PAYMENT RESULT (PHONEPE / MANUAL / VERIFY)
-====================================================== */
 exports.syncPaymentResult = async ({
   merchantTransactionId,
   paymentStatus,
@@ -82,4 +63,85 @@ exports.syncPaymentResult = async ({
 
   await payment.save();
   return payment;
+};
+
+
+exports.finalizeOrderAfterPayment = async (orderId) => {
+  const order = await Order.findById(orderId);
+  if (!order) throw new Error("Order not found");
+
+  if (order.orderStatus === "CONFIRMED") return order; // idempotent ✅
+
+  /* ===============================
+     1️⃣ REDUCE STOCK
+  =============================== */
+  for (const item of order.products) {
+    const stockDoc = await ProductStock.findOne({
+      product_id: item.product,
+      sku: item.sku,
+      is_available: true,
+    });
+
+    if (!stockDoc || stockDoc.stock_quantity < item.quantity) {
+      throw new Error(`Stock mismatch for SKU ${item.sku}`);
+    }
+
+    stockDoc.stock_quantity -= item.quantity;
+    if (stockDoc.stock_quantity === 0) {
+      stockDoc.is_available = false;
+    }
+
+    await stockDoc.save();
+  }
+
+  /* ===============================
+     2️⃣ MARK COUPON USED
+  =============================== */
+  if (order.couponSnapshot?.code) {
+    if (order.couponSnapshot.couponType === "USER") {
+      await UserCoupon.updateOne(
+        { code: order.couponSnapshot.code, status: "Active" },
+        {
+          $set: {
+            status: "Used",
+            user_id: order.user,
+            usedAt: new Date(),
+          },
+        },
+      );
+    }
+
+    if (order.couponSnapshot.couponType === "PUBLIC") {
+      await PublicCoupon.updateOne(
+        { code: order.couponSnapshot.code },
+        {
+          $inc: { usageCount: 1 },
+          $push: {
+            usedBy: {
+              user: order.user,
+              orderId: order._id,
+              usedAt: new Date(),
+            },
+          },
+        },
+      );
+    }
+  }
+
+  /* ===============================
+     3️⃣ CLEAR CART & CHECKOUT
+  =============================== */
+  await CartModel.updateOne({ user_id: order.user }, { $set: { items: [] } });
+
+  await checkoutModel.deleteMany({ user: order.user });
+
+  /* ===============================
+     4️⃣ CONFIRM ORDER
+  =============================== */
+  order.orderStatus = "CONFIRMED";
+  order.deliveryStatus = "NOT_DISPATCHED";
+
+  await order.save();
+
+  return order;
 };

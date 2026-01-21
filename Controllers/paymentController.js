@@ -2,8 +2,8 @@ const Order = require("../Models/orderModel");
 const Payment = require("../Models/paymentModel");
 const phonepeService = require("../services/phonepe.service");
 const {
-  createPayment,
   syncPaymentResult,
+  finalizeOrderAfterPayment
 } = require("../services/payment.service");
 
 const { pagination_ } = require("../utilities/pagination_");
@@ -11,8 +11,12 @@ const { pagination_ } = require("../utilities/pagination_");
 const {
   PHONEPE_STATE_MAP,
   PAYMENT_STATUS,
+  ORDER_STATUS
 } = require("../constants/payment.constants");
-const { finalizeOrderAfterPayment } = require("../services/orderFinalize.service");
+
+
+
+
 
 /* ======================================================
    INITIATE PAYMENT
@@ -25,6 +29,7 @@ exports.initiatePayment = async (req, res) => {
       return res.status(400).json({ success: false, message: "orderId required" });
 
     const order = await Order.findById(orderId);
+
     if (!order)
       return res.status(404).json({ success: false, message: "Order not found" });
 
@@ -33,8 +38,24 @@ exports.initiatePayment = async (req, res) => {
         success: false,
         message: `Order already ${order.orderStatus}`,
       });
+;
+    const payment = await Payment.create({
+        order: order._id,
+        user: order.user,
+        amount: order.totalOrderAmount,
+        paymentStatus: PAYMENT_STATUS.INITIATED,
+        paymentStatusHistory: [
+          {
+            status: PAYMENT_STATUS.INITIATED,
+            source: "SYSTEM",
+          },
+        ],
+      });
+    
+      order.payment = payment._id;
+      order.orderStatus = ORDER_STATUS.PAYMENT_INITIATED;
 
-    const payment = await createPayment({ order });
+      await order.save();
 
     const response = await phonepeService.initiatePayment({
       merchantTransactionId: payment.merchantTransactionId,
