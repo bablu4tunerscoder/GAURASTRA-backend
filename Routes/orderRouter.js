@@ -5,7 +5,7 @@ const { authCheck, permissionCheck } = require("../utilities/JWTAuth");
 
 
 // Create new order
-router.post("/",authCheck, orderController.createOrder);
+router.post("/create",authCheck, orderController.createOrder);
 
 // Get order with payment details by order_id
 router.get("/order-payment/:order_id",authCheck, orderController.getOrderWithPayment);
@@ -17,6 +17,6 @@ router.get('/user-details/:user_id',authCheck, orderController.getDetailswithUse
 router.patch("/update-status/:order_id", authCheck, permissionCheck('orders'), orderController.updateOrderStatus);
  
 // ✅ NEW: Delete order by ID
-router.delete("/:order_id", authCheck, permissionCheck('orders') ,orderController.deleteOrder);
+router.delete("/delete-order/:order_id", authCheck, permissionCheck('orders') ,orderController.deleteOrder);
 
 module.exports = router;

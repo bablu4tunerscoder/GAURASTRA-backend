@@ -121,28 +121,37 @@ const orderSchema = new mongoose.Schema(
       default: null,
     },
 
-    paymentStatus: {
+    deliveryStatus: {
       type: String,
-      enum: ["Enquiry", "Pending", "Paid", "Failed"],
-      default: "Enquiry",
+      enum: [
+        "PENDING",
+        "NOT_DISPATCHED",
+        "DISPATCHED",
+        "SHIPPED",
+        "OUT_FOR_DELIVERY",
+        "DELIVERED",
+        "RETURNED",
+        
+      ],
+      default: "PENDING",
       index: true,
     },
 
     orderStatus: {
       type: String,
-      enum: [
-        "Pending",
-        "Confirmed",
-        "Dispatched",
-        "Shipped",
-        "Delivered",
-        "Cancelled",
-      ],
-      default: "Pending",
+      enum: ["CREATED", "PAYMENT_INITIATED", "CONFIRMED", "CANCELLED", 'FAILED'],
+      default: "CREATED",
       index: true,
     },
 
-    statusHistory: [
+    orderStatusHistory: [
+      {
+        status: String,
+        changedAt: { type: Date, default: Date.now },
+        notes: String,
+      },
+    ],
+    deliveryStatusHistory: [
       {
         status: String,
         changedAt: { type: Date, default: Date.now },
@@ -154,13 +163,33 @@ const orderSchema = new mongoose.Schema(
 );
 
 orderSchema.pre("save", function (next) {
-  if (this.isModified("orderStatus")) {
-    this.statusHistory.push({
+  if (this.isNew) {
+    this.orderStatusHistory.push({
       status: this.orderStatus,
-      notes: `Status changed to ${this.orderStatus}`,
+      notes: "Order created",
     });
+
+    this.deliveryStatusHistory.push({
+      status: this.deliveryStatus,
+      notes: "Order created",
+    });
+  } else {
+    if (this.isModified("orderStatus")) {
+      this.orderStatusHistory.push({
+        status: this.orderStatus,
+        notes: `Status changed to ${this.orderStatus}`,
+      });
+    }
+
+    if (this.isModified("deliveryStatus")) {
+      this.deliveryStatusHistory.push({
+        status: this.deliveryStatus,
+        notes: `Status changed to ${this.deliveryStatus}`,
+      });
+    }
   }
   next();
 });
+
 
 module.exports = mongoose.model("Order", orderSchema);

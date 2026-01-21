@@ -1,452 +1,247 @@
-const phonepeService = require("../utilities/phonepe.service");
 const Order = require("../Models/orderModel");
 const Payment = require("../Models/paymentModel");
-const phonepeConfig = require("../utilities/phonepe.config");
+const phonepeService = require("../services/phonepe.service");
+const {
+  createPayment,
+  syncPaymentResult,
+} = require("../services/payment.service");
+
 const { pagination_ } = require("../utilities/pagination_");
 
-// Helper for IST timestamps
-function getISTDate() {
-  const now = new Date();
-  const istOffset = 5.5 * 60 * 60 * 1000; // +5:30
-  return new Date(now.getTime() + istOffset);
-}
+const {
+  PHONEPE_STATE_MAP,
+  PAYMENT_STATUS,
+} = require("../constants/payment.constants");
+const { finalizeOrderAfterPayment } = require("../services/orderFinalize.service");
 
-/**
- * Shared function to update Payment + Order based on verification result
- */
-async function updatePaymentAndOrder(
-  verification,
-  transactionId,
-  merchantTransactionId
-) {
-  // 🔧 FIX: correct field names + status mapping
-  const paymentDoc = await Payment.findOneAndUpdate(
-    { merchantTransactionId },
-    {
-      paymentStatus:
-        verification.paymentStatus === "SUCCESS" ? "Success" : "Failed",
-
-      gatewayTransactionId:
-        transactionId || verification.transactionId,
-
-      gatewayResponse: verification,
-    },
-    { new: true }
-  );
-
-  if (!paymentDoc) return null;
-
-  // 🔧 FIX: update order via payment.order reference
-  if (verification.paymentStatus === "SUCCESS") {
-    await Order.findByIdAndUpdate(paymentDoc.order, {
-      orderStatus: "Confirmed",
-      paymentStatus: "Paid",
-      payment: paymentDoc._id,
-    });
-  }
-
-  if (verification.paymentStatus === "FAILED") {
-    await Order.findByIdAndUpdate(paymentDoc.order, {
-      orderStatus: "Cancelled",
-      paymentStatus: "Failed",
-      payment: paymentDoc._id,
-    });
-  }
-
-  return paymentDoc;
-}
-
+/* ======================================================
+   INITIATE PAYMENT
+====================================================== */
 exports.initiatePayment = async (req, res) => {
   try {
-  
     const { orderId } = req.body;
 
-    if (!orderId) {
-      return res.status(400).json({
-        success: false,
-        message: "orderId is required",
-      });
-    }
+    if (!orderId)
+      return res.status(400).json({ success: false, message: "orderId required" });
 
     const order = await Order.findById(orderId);
+    if (!order)
+      return res.status(404).json({ success: false, message: "Order not found" });
 
-    if (!order) {
-      return res.status(404).json({
-        success: false,
-        message: "Order not found",
-      });
-    }
-
-    if (order.paymentStatus === "Paid") {
+    if (["CANCELLED", "CONFIRMED"].includes(order.orderStatus))
       return res.status(400).json({
         success: false,
-        message: "Order already Confirmed",
+        message: `Order already ${order.orderStatus}`,
       });
-    }
 
-    if (order.orderStatus === "Cancelled") {
-      return res.status(400).json({
-        success: false,
-        message: "Order is cancelled",
-      });
-    }
+    const payment = await createPayment({ order });
 
-    if (order.paymentStatus === "Pending") {
-      return res.status(400).json({
-        success: false,
-        message: "Payment already initiated",
-      });
-    }
-
-    const merchantTransactionId =
-      "MTX_" + Date.now() + "_" + Math.floor(Math.random() * 100000);
-
-    const callbacks = {
-      success: `${process.env.FRONTEND_URL}/order-success`,
-      failure: `${process.env.FRONTEND_URL}/payment-failed`,
-    };
-
-    const payment = await Payment.create({
-      order: order._id,
-      amount: order.totalOrderAmount,
-      currency: order.currency || "INR",
-      merchantTransactionId,
-      paymentGateway: "PhonePe",
-      paymentStatus: "Initiated",
-      callbacks,
+    const response = await phonepeService.initiatePayment({
+      merchantTransactionId: payment.merchantTransactionId,
+      amount: payment.amount,
+      userId: order.user.toString(),
+      callbacks: {
+        success: `${process.env.FRONTEND_URL}/order-success`,
+        failure: `${process.env.FRONTEND_URL}/payment-failed`,
+      },
     });
 
-    order.payment = payment._id;
-    order.paymentStatus = "Pending";
-    await order.save();
-
-
-    const phonepeResponse = await phonepeService.initiatePayment(
-      merchantTransactionId,        // gateway reference
-      payment.amount,               // amount
-      order.user.toString(),        // userId
-      {
-        orderId: order._id.toString(),
-        paymentId: payment._id.toString(),
-      },
-      payment.callbacks
-    );
-
-    if (!phonepeResponse?.success) {
-      payment.paymentStatus = "Failed";
-      payment.failureReason =
-        phonepeResponse?.message || "Gateway error";
-      await payment.save();
-
-      // 🔧 FIX: Sync order state on failure
-      order.paymentStatus = "Failed";
-      await order.save();
-
-      return res.status(400).json({
-        success: false,
-        message: "Payment initiation failed",
-      });
-    }
-
-    payment.phonepePaymentUrl = phonepeResponse.paymentUrl;
-    payment.gatewayResponse = phonepeResponse;
+    payment.phonepePaymentUrl = response.redirectUrl;
     await payment.save();
 
-    return res.status(200).json({
+    res.json({
       success: true,
-      message: "Payment initiated",
       paymentId: payment._id,
-      merchantTransactionId,
-      paymentUrl: phonepeResponse.paymentUrl,
+      merchantTransactionId: payment.merchantTransactionId,
+      paymentUrl: response.redirectUrl,
     });
   } catch (error) {
-    console.error("Payment initiation error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: error.message || "Payment initiation failed",
-    });
+    console.error("initiatePayment error:", error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// PhonePe callback handler
+/* ======================================================
+   PHONEPE CALLBACK (WEBHOOK)
+====================================================== */
 exports.paymentCallback = async (req, res) => {
   try {
-
     const authorization = req.headers["authorization"];
-    if (!authorization) {
-      console.error("PhonePe callback missing authorization header");
-      return res.status(200).json({
-        success: false,
-        message: "Authorization header missing",
-      });
-    }
+    if (!authorization)
+      return res.status(200).json({ success: false });
 
-    const result = await phonepeService.handleCallback(
+    const response = await phonepeService.handleCallback(
       authorization,
       req.body
     );
 
-    if (!result?.success) {
-      console.error("PhonePe callback verification failed", result);
-      return res.status(200).json(result);
-    }
+    if (!response?.success) return res.status(200).json(response);
 
-    return res.status(200).json(result);
-  } catch (error) {
-    console.error("Payment callback error:", error);
+    const paymentStatus =
+      PHONEPE_STATE_MAP[response.state] || PAYMENT_STATUS.PENDING;
 
-    return res.status(200).json({
-      success: false,
-      message: "Callback processing error",
+    await syncPaymentResult({
+      merchantTransactionId: response.merchantTransactionId,
+      paymentStatus,
+      transactionId: response.transactionId,
+      gatewayResponse: response,
     });
-  }
-};
 
-// Handle payment success redirect
-exports.handleSuccess = async (req, res) => {
-  try {
-    const { merchantTransactionId, transactionId } = req.body;
-
-    const verification = await phonepeService.verifyPayment(
-      merchantTransactionId
-    );
-
-    if (!verification.success) {
-      return res.redirect(
-        `${phonepeConfig.FRONTEND_URL}/payment-failed?transactionId=${transactionId}&merchantTransactionId=${merchantTransactionId}&status=failed`
-      );
-    }
-
-    await updatePaymentAndOrder(
-      verification,
-      transactionId,
-      merchantTransactionId
-    );
-
-    if (verification.paymentStatus === "SUCCESS") {
-      return res.redirect(
-        `${phonepeConfig.FRONTEND_URL}/order-success?transactionId=${transactionId}&merchantTransactionId=${merchantTransactionId}&status=success`
-      );
-    }
-
-    return res.redirect(
-      `${phonepeConfig.FRONTEND_URL}/payment-failed?transactionId=${transactionId}&merchantTransactionId=${merchantTransactionId}&status=failed`
-    );
+    res.status(200).json({ success: true });
   } catch (error) {
-    console.error("Payment success handling error:", error);
-    return res.redirect(
-      `${phonepeConfig.FRONTEND_URL}/payment-failed?error=1`
-    );
+    console.error("paymentCallback error:", error);
+    res.status(200).json({ success: false });
   }
 };
 
-// Handle payment failure redirect
-exports.handleFailure = async (req, res) => {
-  try {
-    const { merchantTransactionId, transactionId, code } = req.body;
-
-    // 🔧 FIX: correct field names + enum
-    const paymentDoc = await Payment.findOneAndUpdate(
-      { merchantTransactionId },
-      {
-        paymentStatus: "Failed",
-        failureReason: code || "User cancelled",
-        gatewayResponse: {
-          ...req.body,
-          verified: false,
-        },
-      },
-      { new: true }
-    );
-
-    // 🔧 FIX: update order using payment.order reference
-    if (paymentDoc?.order) {
-      await Order.findByIdAndUpdate(paymentDoc.order, {
-        orderStatus: "Cancelled",
-        paymentStatus: "Failed",
-        payment: paymentDoc._id,
-      });
-    }
-
-    const frontendUrl = `${phonepeConfig.FRONTEND_URL}/payment-cancelled?transactionId=${transactionId}&merchantTransactionId=${merchantTransactionId}&status=cancelled`;
-    return res.redirect(frontendUrl);
-  } catch (error) {
-    console.error("Payment failure handling error:", error);
-    return res.redirect(
-      `${phonepeConfig.FRONTEND_URL}/payment-failed?error=1`
-    );
-  }
-};
-
-// Verify payment by merchantTransactionId
+/* ======================================================
+   VERIFY PAYMENT (MANUAL / POLLING)
+====================================================== */
 exports.verifyPayment = async (req, res) => {
   try {
     const { merchantTransactionId } = req.params;
 
-    const result = await phonepeService.verifyPayment(
-      merchantTransactionId
-    );
+    const response = await phonepeService.verifyPayment(merchantTransactionId);
 
-    if (!result?.success) {
-      return res.status(400).json(result);
-    }
+    const paymentStatus =
+      PHONEPE_STATE_MAP[response.state] || PAYMENT_STATUS.PENDING;
 
-    // 🔧 FIX: idempotent check (logic same)
-    const existingPayment = await Payment.findOne({
+    const payment = await syncPaymentResult({
       merchantTransactionId,
+      paymentStatus,
+      transactionId: response.orderId,
+      gatewayResponse: response,
     });
-
-    if (
-      existingPayment &&
-      ["Success", "Failed"].includes(existingPayment.paymentStatus)
-    ) {
-      return res.json({
-        ...result,
-        payment: existingPayment,
-        alreadyVerified: true,
-      });
-    }
-
-    // 🔧 FIX: schema-aligned updater
-    const paymentDoc = await updatePaymentAndOrder(
-      result,
-      result.transactionId,
-      merchantTransactionId
-    );
-
-    return res.json({
-      ...result,
-      payment: paymentDoc, // 🔧 FIX: correct naming
-    });
-  } catch (error) {
-    console.error("Payment verification error:", error);
-    return res.status(500).json({
-      success: false,
-      error: error.message,
-    });
-  }
-};
-
-// Initiate refund
-exports.initiateRefund = async (req, res) => {
-  try {
-    const { paymentId, amount } = req.body;
-
-    // 🔧 FIX: basic input validation (logic same)
-    if (!paymentId || !amount) {
-      return res.status(400).json({
-        success: false,
-        message: "paymentId and amount are required",
-      });
-    }
-
-    const result = await phonepeService.initiateRefund(
-      paymentId,
-      amount
-    );
-
-    if (!result?.success) {
-      return res.status(400).json(result);
-    }
-
-    return res.json(result);
-  } catch (error) {
-    console.error("Refund initiation error:", error);
-    return res.status(500).json({
-      success: false,
-      error: error.message,
-    });
-  }
-};
-
-
-// Get payment details (with linked order)
-exports.getPaymentDetails = async (req, res) => {
-  try {
-    const { paymentId } = req.params;
-
-    // 🔧 FIX: payment_id → _id (schema aligned)
-    const payment = await Payment.findById(paymentId);
-    if (!payment) {
-      return res.status(404).json({
-        success: false,
-        error: "Payment not found",
-      });
-    }
-
-    // 🔧 FIX: order lookup via payment ObjectId
-    const order = await Order.findOne({
-      payment: payment._id,
-    });
-
-    return res.json({
-      success: true,
-      payment,
-      order,
-    });
-  } catch (error) {
-    console.error("Get payment details error:", error);
-    return res.status(500).json({
-      success: false,
-      error: error.message,
-    });
-  }
-};
-
-
-// ----------------------- Admin / Utility Endpoints -----------------------
-
-// Get payment by merchantTransactionId
-exports.getPaymentByMerchant = async (req, res) => {
-  try {
-    const { merchantTransactionId } = req.params;
-
-    const payment = await Payment.findOne({
-      merchantTransactionId: merchantTransactionId
-    });
-
-    if (!payment) {
-      return res.status(404).json({
-        success: false,
-        error: "Payment not found",
-      });
-    }
 
     res.json({
       success: true,
       payment,
     });
   } catch (error) {
-    console.error("Get payment by merchantTransactionId error:", error);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
+    console.error("verifyPayment error:", error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-
-// Get all pending payments
-exports.getPendingPayments = async (req, res) => {
+/* ======================================================
+   HANDLE SUCCESS REDIRECT
+====================================================== */
+exports.handleSuccess = async (req, res) => {
   try {
-    const { page, limit, skip, hasPrevPage } = pagination_(req.query, {
-      defaultLimit: 10,
-      maxLimit: 20,
+    const { merchantTransactionId } = req.body;
+
+    const response = await phonepeService.verifyPayment(merchantTransactionId);
+
+    const paymentStatus =
+      PHONEPE_STATE_MAP[response.state] || PAYMENT_STATUS.PENDING;
+
+    const payment = await syncPaymentResult({
+      merchantTransactionId,
+      paymentStatus,
+      transactionId: response.orderId,
+      gatewayResponse: response,
     });
 
+    // 🔥 IMPORTANT PART
+    if (paymentStatus === PAYMENT_STATUS.SUCCESS) {
+      await finalizeOrderAfterPayment(payment.order);
+    }
+
+    return res.redirect(
+      `${process.env.FRONTEND_URL}/order-success?merchantTransactionId=${merchantTransactionId}`
+    );
+  } catch (error) {
+    console.error("handleSuccess error:", error);
+    return res.redirect(`${process.env.FRONTEND_URL}/payment-failed`);
+  }
+};
+
+/* ======================================================
+   HANDLE FAILURE REDIRECT
+====================================================== */
+exports.handleFailure = async (req, res) => {
+  try {
+    const { merchantTransactionId } = req.body;
+
+    await syncPaymentResult({
+      merchantTransactionId,
+      paymentStatus: PAYMENT_STATUS.FAILED,
+      gatewayResponse: req.body,
+    });
+
+    res.redirect(
+      `${process.env.FRONTEND_URL}/payment-failed?merchantTransactionId=${merchantTransactionId}`
+    );
+  } catch (error) {
+    res.redirect(`${process.env.FRONTEND_URL}/payment-failed`);
+  }
+};
+
+/* ======================================================
+   GET PAYMENT DETAILS (WITH ORDER + USER)
+====================================================== */
+exports.getPaymentDetails = async (req, res) => {
+  try {
+    const payment = await Payment.findById(req.params.paymentId).populate({
+      path: "order",
+      populate: { path: "user", select: "name email phone" },
+    });
+
+    if (!payment)
+      return res.status(404).json({ success: false, message: "Payment not found" });
+
+    res.json({
+      success: true,
+      payment,
+      order: payment.order,
+      user: payment.order?.user,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/* ======================================================
+   GET PAYMENT BY MERCHANT TXN ID
+====================================================== */
+exports.getPaymentByMerchant = async (req, res) => {
+  try {
+    const payment = await Payment.findOne({
+      merchantTransactionId: req.params.merchantTransactionId,
+    }).populate({
+      path: "order",
+      populate: { path: "user", select: "name email phone" },
+    });
+
+    if (!payment)
+      return res.status(404).json({ success: false, message: "Payment not found" });
+
+    res.json({
+      success: true,
+      payment,
+      order: payment.order,
+      user: payment.order?.user,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/* ======================================================
+   GET PENDING PAYMENTS (ADMIN)
+====================================================== */
+exports.getPendingPayments = async (req, res) => {
+  try {
+    const { page, limit, skip, hasPrevPage } = pagination_(req.query);
+
     const [payments, totalRecords] = await Promise.all([
-      Payment.find({ payment_status: "PENDING" })
+      Payment.find({ paymentStatus: PAYMENT_STATUS.PENDING })
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .lean(),
-
-      Payment.countDocuments({ payment_status: "PENDING" }),
+      Payment.countDocuments({ paymentStatus: PAYMENT_STATUS.PENDING }),
     ]);
-
-    const totalPages = Math.ceil(totalRecords / limit);
-    const hasNextPage = page < totalPages;
 
     res.json({
       success: true,
@@ -454,48 +249,50 @@ exports.getPendingPayments = async (req, res) => {
         page,
         limit,
         totalRecords,
-        totalPages,
+        totalPages: Math.ceil(totalRecords / limit),
         hasPrevPage,
-        hasNextPage,
+        hasNextPage: page * limit < totalRecords,
       },
       payments,
     });
   } catch (error) {
-    console.error("Get pending payments error:", error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-
-
-// Update payment status manually (admin utility)
+/* ======================================================
+   MANUAL PAYMENT STATUS UPDATE (ADMIN)
+====================================================== */
 exports.updatePaymentStatus = async (req, res) => {
   try {
-    const { merchantTransactionId, status, notes } = req.body;
+    const { merchantTransactionId, paymentStatus } = req.body;
 
-    const paymentDoc = await Payment.findOneAndUpdate(
-      { merchantTransactionId: merchantTransactionId },
-      {
-        payment_status: status,
-        $push: {
-          status_history: {
-            status,
-            changed_at: getISTDate(),
-            notes: notes || "Updated manually",
-          },
-        },
-        updatedAt: new Date(),
-      },
-      { new: true }
-    );
+    const payment = await syncPaymentResult({
+      merchantTransactionId,
+      paymentStatus,
+      gatewayResponse: { manual: true },
+    });
 
-    if (!paymentDoc) {
-      return res.status(404).json({ success: false, error: "Payment not found" });
-    }
-
-    res.json({ success: true, payment: paymentDoc });
+    res.json({ success: true, payment });
   } catch (error) {
-    console.error("Update payment status error:", error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/* ======================================================
+   INITIATE REFUND
+====================================================== */
+exports.initiateRefund = async (req, res) => {
+  try {
+    const { paymentId, amount } = req.body;
+
+    const payment = await Payment.findById(paymentId);
+    if (!payment)
+      return res.status(404).json({ success: false, message: "Payment not found" });
+
+    const result = await phonepeService.initiateRefund(payment, amount);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };

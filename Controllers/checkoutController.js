@@ -84,8 +84,8 @@ const createOrUpdateCheckout = async (req, res) => {
     let discount = 0;
     let appliedCoupon = null;
 
-    if (coupon?.code) {
-      const code = coupon.code;
+    if (coupon) {
+      const code = coupon;
 
       /* ---- TRY USER COUPON ---- */
       const userCoupon = await UserCoupon.findOne({
@@ -115,8 +115,8 @@ const createOrUpdateCheckout = async (req, res) => {
 
         appliedCoupon = {
           code,
-          type: "USER_COUPON",
-          discount,
+          couponType: "USER_COUPON",
+          discountAmount:discount,
         };
       } else {
         /* ---- TRY PUBLIC COUPON ---- */
@@ -171,8 +171,8 @@ const createOrUpdateCheckout = async (req, res) => {
 
         appliedCoupon = {
           code,
-          type: "PUBLIC_COUPON",
-          discount,
+          couponType: "PUBLIC_COUPON",
+          discountAmount: discount,
         };
       }
     }

@@ -2,81 +2,89 @@ const mongoose = require("mongoose");
 
 const paymentSchema = new mongoose.Schema(
   {
-    
     order: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Order",
       required: true,
-      index: true
+      index: true,
     },
 
-   
     amount: {
       type: Number,
-      required: true
+      required: true,
     },
 
     currency: {
       type: String,
-      default: "INR"
+      default: "INR",
     },
 
-    
     paymentGateway: {
       type: String,
       default: "PhonePe",
-      index: true
+      index: true,
     },
 
     merchantTransactionId: {
       type: String,
       required: true,
       unique: true,
-      index: true
+      index: true,
     },
-
-    gatewayTransactionId: {
+    transactionId: {
       type: String,
-      index: true
+      index: true,
+      sparse: true,
     },
 
     paymentMode: {
-      type: String
+      type: String,
     },
 
     paymentStatus: {
       type: String,
-      enum: ["Initiated", "Pending", "Success", "Failed"],
-      default: "Initiated",
-      index: true
+      enum: ["INITIATED", "PENDING", "SUCCESS", "FAILED"],
+      default: "INITIATED",
+      index: true,
     },
 
+    paymentStatusHistory: [
+      {
+        status: String,
+        changedAt: { type: Date, default: Date.now },
+        notes: String,
+      },
+    ],
+
     failureReason: {
-      type: String
+      type: String,
     },
-    refunds:[{
-      merchantRefundId: String,
-      refundId: String,
-      amount: Number,
-      status: String,
-      timestamp: Date
-    }],
+
+    refunds: [
+      {
+        merchantRefundId: String,
+        refundId: String,
+        amount: Number,
+        status: String,
+        timestamp: Date,
+      },
+    ],
 
     /* 📦 Raw Gateway Data */
     gatewayResponse: {
-      type: mongoose.Schema.Types.Mixed
+      type: mongoose.Schema.Types.Mixed,
     },
 
     phonepePaymentUrl: {
-      type: String
+      type: String,
     },
 
     callbacks: {
       success: String,
-      failure: String
-    }
+      failure: String,
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 module.exports = mongoose.model("Payment", paymentSchema);

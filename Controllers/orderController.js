@@ -65,11 +65,11 @@ exports.createOrder = async (req, res) => {
         });
       }
 
-      stockDoc.stock_quantity -= item.quantity;
-      if (stockDoc.stock_quantity === 0) {
-        stockDoc.is_available = false;
-      }
-      await stockDoc.save();
+      // stockDoc.stock_quantity -= item.quantity;
+      // if (stockDoc.stock_quantity === 0) {
+      //   stockDoc.is_available = false;
+      // }
+      // await stockDoc.save();
     }
 
     /* ===============================
@@ -80,10 +80,10 @@ exports.createOrder = async (req, res) => {
       sku: item.sku,
 
       snapshot: {
-        name: item.name, // checkout cart me name already hai
+        name: item.name, 
         price: item.price.discounted_price ?? item.price.original_price,
-        size: item.size || null, // optional, agar checkout me add kiya ho
-        color: item.color || null, // optional, agar checkout me add kiya ho
+        size: item.size || null, 
+        color: item.color || null, 
       },
 
       quantity: item.quantity,
@@ -111,51 +111,50 @@ exports.createOrder = async (req, res) => {
 
       totalOrderAmount: checkout.price_details.total_amount,
       currency: "INR",
-
-      paymentStatus: "Pending",
-      orderStatus: "Pending",
+      deliveryStatus:'PENDING',
+      orderStatus: "CREATED",
     });
 
     /* ===============================
        5️⃣ MARK COUPON USED (FINAL LOCK)
     =============================== */
-    if (checkout.coupon?.code) {
-      if (checkout.coupon.couponType === "USER_COUPON") {
-        await UserCoupon.updateOne(
-          { code: checkout.coupon.code, status: "Active" },
-          {
-            $set: {
-              status: "Used",
-              user_id: userId,
-              usedAt: new Date(),
-            },
-          },
-        );
-      }
+    // if (checkout.coupon?.code) {
+    //   if (checkout.coupon.couponType === "USER_COUPON") {
+    //     await UserCoupon.updateOne(
+    //       { code: checkout.coupon.code, status: "Active" },
+    //       {
+    //         $set: {
+    //           status: "Used",
+    //           user_id: userId,
+    //           usedAt: new Date(),
+    //         },
+    //       },
+    //     );
+    //   }
 
-      if (checkout.coupon.couponType === "PUBLIC_COUPON") {
-        await PublicCoupon.updateOne(
-          { code: checkout.coupon.code },
-          {
-            $inc: { usageCount: 1 },
-            $push: {
-              usedBy: {
-                user: userId,
-                orderId: order._id,
-                usedAt: new Date(),
-              },
-            },
-          },
-        );
-      }
-    }
+    //   if (checkout.coupon.couponType === "PUBLIC_COUPON") {
+    //     await PublicCoupon.updateOne(
+    //       { code: checkout.coupon.code },
+    //       {
+    //         $inc: { usageCount: 1 },
+    //         $push: {
+    //           usedBy: {
+    //             user: userId,
+    //             orderId: order._id,
+    //             usedAt: new Date(),
+    //           },
+    //         },
+    //       },
+    //     );
+    //   }
+    // }
 
     /* ===============================
        6️⃣ CLEAR CART & CHECKOUT
     =============================== */
-    await CartModel.updateOne({ user_id: userId }, { $set: { items: [] } });
+    // await CartModel.updateOne({ user_id: userId }, { $set: { items: [] } });
 
-    await checkoutModel.deleteOne({ _id: checkout._id });
+    // await checkoutModel.deleteOne({ _id: checkout._id });
 
     return res.status(201).json({
       success: true,
@@ -330,53 +329,104 @@ exports.getDetailswithUser = async (req, res) => {
 exports.updateOrderStatus = async (req, res) => {
   try {
     const { order_id } = req.params;
-    const { order_status } = req.body;
+    const { orderStatus } = req.body;
 
-    const validStatuses = [
-      "Pending",
-      "Confirmed",
-      "Dispatched",
-      "Shipped",
-      "Delivered",
-      "Cancelled",
+    const validOrderStatuses = [
+      "CONFIRMED",
+      "CANCELLED",
     ];
-    if (!validStatuses.includes(order_status)) {
-      return res.status(400).json({ error: "Invalid order_status value." });
+
+    if (!validOrderStatuses.includes(orderStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid orderStatus value",
+      });
     }
 
-    const order = await Order.findById(order_id);
-
+    const order = await Order.findOne({ order_id });
     if (!order) {
-      return res.status(404).json({ error: "Order not found." });
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
     }
 
-    const now = new Date();
+    order.orderStatus = orderStatus;
+    await order.save(); // 🔥 history auto update hogi
 
-    // ✅ Format timestamp in IST (human readable)
-    const istDateTime = now.toLocaleString("en-IN", {
-      timeZone: "Asia/Kolkata",
-      dateStyle: "medium",
-      timeStyle: "short",
+    res.status(200).json({
+      success: true,
+      message: "Order status updated successfully",
+      order,
     });
-
-    order.statusHistory.push({
-      status: order_status,
-      changed_at: now, 
-      notes: `${order_status} on ${istDateTime}`, 
-    });
-
-    
-    order.statusHistory = order_status;
-    await order.save();
-
-    res
-      .status(200)
-      .json({ message: "Order status updated successfully", order });
   } catch (error) {
-    console.error("Error updating order status:", error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("updateOrderStatus error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
   }
 };
+
+
+exports.updateDeliveryStatus = async (req, res) => {
+  try {
+    const { order_id } = req.params;
+    const { deliveryStatus } = req.body;
+
+    const validDeliveryStatuses = [
+      "PENDING",
+      "NOT_DISPATCHED",
+      "DISPATCHED",
+      "SHIPPED",
+      "OUT_FOR_DELIVERY",
+      "DELIVERED",
+      "RETURNED",
+    ];
+
+    if (!validDeliveryStatuses.includes(deliveryStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid deliveryStatus value",
+      });
+    }
+
+    const order = await Order.findOne({ order_id });
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    // 🔁 Update delivery status
+    order.deliveryStatus = deliveryStatus;
+
+   
+    if (deliveryStatus === "RETURNED") {
+      order.orderStatus = "CANCELLED";
+    }
+
+    await order.save(); 
+
+    res.status(200).json({
+      success: true,
+      message:
+        deliveryStatus === "RETURNED"
+          ? "Order returned and cancelled successfully"
+          : "Delivery status updated successfully",
+      order,
+    });
+  } catch (error) {
+    console.error("updateDeliveryStatus error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+
 
 // Delete order by order_id
 exports.deleteOrder = async (req, res) => {
