@@ -5,7 +5,7 @@ const {
   syncPaymentResult,
   finalizeOrderAfterPayment
 } = require("../services/payment.service");
-
+const { v4: uuidv4 } = require('uuid');
 const { pagination_ } = require("../utilities/pagination_");
 
 const {
@@ -41,6 +41,7 @@ exports.initiatePayment = async (req, res) => {
 ;
     const payment = await Payment.create({
         order: order._id,
+        merchantTransactionId:uuidv4(),
         user: order.user,
         amount: order.totalOrderAmount,
         paymentStatus: PAYMENT_STATUS.INITIATED,
