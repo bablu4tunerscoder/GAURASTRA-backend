@@ -14,7 +14,9 @@ router.get("/order-payment", authCheck, orderController.getAllOrdersWithPayments
 router.get('/user-details/:user_id',authCheck, orderController.getDetailswithUser);
 
 // Route to update order_status
-router.patch("/update-status/:order_id", authCheck, permissionCheck('orders'), orderController.updateOrderStatus);
+router.patch("/update-order-status/:order_id", authCheck, permissionCheck('orders'), orderController.updateOrderStatus);
+// Route to update order_status
+router.patch("/update-delevery-status/:order_id", authCheck, permissionCheck('orders'), orderController.updateDeliveryStatus);
  
 // ✅ NEW: Delete order by ID
 router.delete("/delete-order/:order_id", authCheck, permissionCheck('orders') ,orderController.deleteOrder);

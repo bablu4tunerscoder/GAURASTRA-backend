@@ -12,6 +12,9 @@ const createOrUpdateCheckout = async (req, res) => {
     const user = req.user;
     const { coupon } = req.body;
 
+
+  
+
     /* ===============================
        0️⃣ DEFAULT ADDRESS
     =============================== */
@@ -258,7 +261,7 @@ const updateCheckoutPaymentMethod = async (req, res) => {
 const getActiveCheckout = async (req, res) => {
   try {
     const user_id = req.user.userid;
-    const checkoutId = req.query.checkoutId;
+    const checkoutId = req.params.checkoutId;
 
     const TWO_HOUR = 120 * 60 * 1000;
     const expiryTime = new Date(Date.now() - TWO_HOUR);

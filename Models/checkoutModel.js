@@ -63,7 +63,7 @@ const checkoutSchema = new mongoose.Schema(
       discountAmount: Number,
       couponType: {
         type: String,
-        enum: ["USER", "PUBLIC"],
+        enum: ["USER_COUPON", "PUBLIC_COUPON"],
       },
     },
 
