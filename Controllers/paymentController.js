@@ -38,7 +38,22 @@ exports.initiatePayment = async (req, res) => {
         success: false,
         message: `Order already ${order.orderStatus}`,
       });
-;
+
+      const existingPayment = await Payment.findOne({
+      order: order._id,
+      paymentStatus: { $in: [PAYMENT_STATUS.INITIATED, PAYMENT_STATUS.PENDING] },
+    });
+
+     if (existingPayment) {
+      return res.json({
+        success: true,
+        paymentId: existingPayment._id,
+        merchantTransactionId: existingPayment.merchantTransactionId,
+        paymentUrl: existingPayment.phonepePaymentUrl,
+      });
+    }
+
+
     const payment = await Payment.create({
         order: order._id,
         merchantTransactionId:uuidv4(),
@@ -61,11 +76,7 @@ exports.initiatePayment = async (req, res) => {
     const response = await phonepeService.initiatePayment({
       merchantTransactionId: payment.merchantTransactionId,
       amount: payment.amount,
-      userId: order.user.toString(),
-      callbacks: {
-        success: `${process.env.FRONTEND_URL}/order-success`,
-        failure: `${process.env.FRONTEND_URL}/payment-failed`,
-      },
+      userId: order.user.toString()
     });
 
     payment.phonepePaymentUrl = response.redirectUrl;
@@ -97,17 +108,19 @@ exports.paymentCallback = async (req, res) => {
       req.body
     );
 
-    if (!response?.success) return res.status(200).json(response);
-
     const paymentStatus =
       PHONEPE_STATE_MAP[response.state] || PAYMENT_STATUS.PENDING;
 
-    await syncPaymentResult({
+   const payment = await syncPaymentResult({
       merchantTransactionId: response.merchantTransactionId,
       paymentStatus,
       transactionId: response.transactionId,
       gatewayResponse: response,
     });
+
+     if (paymentStatus === PAYMENT_STATUS.SUCCESS) {
+      await finalizeOrderAfterPayment(payment.order);
+    }
 
     res.status(200).json({ success: true });
   } catch (error) {
@@ -135,6 +148,10 @@ exports.verifyPayment = async (req, res) => {
       gatewayResponse: response,
     });
 
+    if (paymentStatus === PAYMENT_STATUS.SUCCESS) {
+      await finalizeOrderAfterPayment(payment.order);
+    }
+
     res.json({
       success: true,
       payment,
@@ -146,57 +163,20 @@ exports.verifyPayment = async (req, res) => {
 };
 
 /* ======================================================
-   HANDLE SUCCESS REDIRECT
-====================================================== */
-exports.handleSuccess = async (req, res) => {
-  try {
-    const { merchantTransactionId } = req.body;
-
-    const response = await phonepeService.verifyPayment(merchantTransactionId);
-
-    const paymentStatus =
-      PHONEPE_STATE_MAP[response.state] || PAYMENT_STATUS.PENDING;
-
-    const payment = await syncPaymentResult({
-      merchantTransactionId,
-      paymentStatus,
-      transactionId: response.orderId,
-      gatewayResponse: response,
-    });
-
-    // 🔥 IMPORTANT PART
-    if (paymentStatus === PAYMENT_STATUS.SUCCESS) {
-      await finalizeOrderAfterPayment(payment.order);
-    }
-
-    return res.redirect(
-      `${process.env.FRONTEND_URL}/order-success?merchantTransactionId=${merchantTransactionId}`
-    );
-  } catch (error) {
-    console.error("handleSuccess error:", error);
-    return res.redirect(`${process.env.FRONTEND_URL}/payment-failed`);
-  }
-};
-
-/* ======================================================
    HANDLE FAILURE REDIRECT
 ====================================================== */
+exports.handleSuccess = async (req, res) => {
+  const { merchantTransactionId } = req.body || {};
+  return res.redirect(
+    `${process.env.FRONTEND_URL}/order-success?merchantTransactionId=${merchantTransactionId}`
+  );
+};
+
 exports.handleFailure = async (req, res) => {
-  try {
-    const { merchantTransactionId } = req.body;
-
-    await syncPaymentResult({
-      merchantTransactionId,
-      paymentStatus: PAYMENT_STATUS.FAILED,
-      gatewayResponse: req.body,
-    });
-
-    res.redirect(
-      `${process.env.FRONTEND_URL}/payment-failed?merchantTransactionId=${merchantTransactionId}`
-    );
-  } catch (error) {
-    res.redirect(`${process.env.FRONTEND_URL}/payment-failed`);
-  }
+  const { merchantTransactionId } = req.body || {};
+  return res.redirect(
+    `${process.env.FRONTEND_URL}/payment-failed?merchantTransactionId=${merchantTransactionId}`
+  );
 };
 
 /* ======================================================

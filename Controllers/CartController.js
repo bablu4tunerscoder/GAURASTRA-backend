@@ -194,7 +194,7 @@ const getCart = async (req, res) => {
 };
 
 
-const addBulkCartItems = async (req, res) => {
+const addBulkCartItems = async(req, res) => {
   try {
     const user = req.user;
     const { items } = req.body;
