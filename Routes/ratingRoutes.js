@@ -5,7 +5,8 @@ const {
     createRating,
     listRatingsByProduct,
     listAllRatingsForAdmin,
-    updatePublishStatus
+    updatePublishStatus,
+    listUserRatedProducts
 } = require('../Controllers/ratingCommentController');
 const { authCheck, permissionCheck } = require("../utilities/JWTAuth");
 
@@ -14,6 +15,8 @@ router.get('/:productId/ratings',authCheck, listRatingsByProduct);
 
 router.get('/', authCheck, permissionCheck('ratings'), listAllRatingsForAdmin);
 router.patch('/update/:ratingId/', authCheck , updatePublishStatus);
+
+router.get('/user-rating', authCheck , listUserRatedProducts);
 
 
 module.exports = router;

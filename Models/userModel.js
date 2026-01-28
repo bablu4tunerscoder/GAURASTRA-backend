@@ -5,7 +5,7 @@ const userSchema = new mongoose.Schema(
     name: {
       type: String,
       required: true,
-      index: true
+      index: true,
     },
 
     email: {
@@ -14,46 +14,42 @@ const userSchema = new mongoose.Schema(
       unique: true,
       lowercase: true,
       trim: true,
-      index: true
+      index: true,
     },
 
     phone: {
       type: String,
       required: true,
       unique: true,
-      index: true
+      index: true,
     },
 
     password: {
-      type: String
-    },
-
-    address: {
-      type: String
+      type: String,
     },
 
     location: {
       type: {
         type: String,
         enum: ["Point"],
-        default: "Point"
+        default: "Point",
       },
       coordinates: {
-        type: [Number], 
-        default: [0, 0]
-      }
+        type: [Number],
+        default: [0, 0],
+      },
     },
 
     role: {
       type: String,
       enum: ["Customer", "Admin", "Employee"],
       default: "Customer",
-      index: true
+      index: true,
     },
 
     permissions: {
       type: [String],
-      default: []
+      default: [],
     },
 
     ipAddress: String,
@@ -63,21 +59,31 @@ const userSchema = new mongoose.Schema(
       type: String,
       enum: ["Pending", "Active", "Inactive"],
       default: "Pending",
-      index: true
+      index: true,
+    },
+
+    dob: {
+      type: Date,
+    },
+
+    gender: {
+      type: String,
+      enum: ["Man", "Woman", "Other"],
+      default: null
     },
 
     profileImage: {
       type: String,
-      default: "/Uploads/images/default.webp"
+      default: "/Uploads/images/default.webp",
     },
+
     otp: {
       type: String,
-      default: null
-    }
+      default: null,
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
-
 
 userSchema.index({ location: "2dsphere" });
 

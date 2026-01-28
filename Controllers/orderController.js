@@ -6,7 +6,8 @@ const ProductStock = require("../Models/ProductStockModel");
 const checkoutModel = require("../Models/checkoutModel");
 const userAddressModel = require("../Models/userAddressModel");
 const { generateOrderId } = require("../utilities/generateOrderId");
-
+const Product = require("../Models/ProductModel");
+const { enrichProductListWithVariants } = require("../utilities/enrichProductListWithVariants");
 
 
 // Create New Order
@@ -167,6 +168,7 @@ exports.getOrderWithPayment = async (req, res) => {
   }
 };
 
+
 // Get all orders with their payment status (for admin dashboard)
 exports.getAllOrdersWithPayments = async (req, res) => {
   try {
@@ -281,6 +283,7 @@ exports.getDetailswithUser = async (req, res) => {
     });
   }
 };
+
 
 exports.updateOrderStatus = async (req, res) => {
   try {
@@ -419,6 +422,212 @@ exports.deleteOrder = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+
+exports.getMyOrders = async (req, res) => {
+  try {
+    const user_id = req.user.userid;
+
+    const { page, limit, skip, hasPrevPage } = pagination_(req.query, {
+      defaultLimit: 10,
+      maxLimit: 20,
+    });
+
+    /* ---------------------------------
+       STEP 1️⃣ Fetch user orders
+    --------------------------------- */
+    const [orders, totalRecords] = await Promise.all([
+      Order.find({ user: user_id })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+
+      Order.countDocuments({ user: user_id }),
+    ]);
+
+    if (!orders.length) {
+      return res.status(200).json({
+        success: true,
+        orders: [],
+        pagination: {
+          page,
+          limit,
+          totalRecords: 0,
+          totalPages: 0,
+          hasPrevPage,
+          hasNextPage: false,
+        },
+      });
+    }
+
+    /* ---------------------------------
+       STEP 2️⃣ Collect productIds
+    --------------------------------- */
+    const productIds = [
+      ...new Set(
+        orders.flatMap(order =>
+          order.products.map(p => p.product)
+        )
+      ),
+    ];
+
+    /* ---------------------------------
+       STEP 3️⃣ Build selectedVariants (SKU based)
+    --------------------------------- */
+    const selectedVariants = {};
+
+    orders.forEach(order => {
+      order.products.forEach(item => {
+        if (item.product && item.sku) {
+          selectedVariants[item.product.toString()] = item.sku;
+        }
+      });
+    });
+
+    /* ---------------------------------
+       STEP 4️⃣ Fetch & enrich products
+    --------------------------------- */
+    const products = await Product.find({
+      _id: { $in: productIds },
+    }).lean();
+
+    const enrichedProducts = await enrichProductListWithVariants(
+      products,
+      { selectedVariants }
+    );
+
+    /* ---------------------------------
+       STEP 5️⃣ Attach product + payment
+    --------------------------------- */
+    const finalOrders = await Promise.all(
+      orders.map(async order => {
+        const payment = await Payment.findOne({
+          order: order._id,
+        }).lean();
+
+        const enrichedItems = order.products.map(item => {
+          const product = enrichedProducts.find(
+            p => String(p._id) === String(item.product)
+          );
+
+          return {
+            ...item,
+            product: product || null,
+          };
+        });
+
+        return {
+          ...order,
+          products: enrichedItems,
+          payment,
+          createdAtIST: new Date(order.createdAt).toLocaleString(
+            "en-IN",
+            { timeZone: "Asia/Kolkata" }
+          ),
+        };
+      })
+    );
+
+    const totalPages = Math.ceil(totalRecords / limit);
+    const hasNextPage = page < totalPages;
+
+    res.status(200).json({
+      success: true,
+      pagination: {
+        page,
+        limit,
+        totalRecords,
+        totalPages,
+        hasPrevPage,
+        hasNextPage,
+      },
+      orders: finalOrders,
+    });
+  } catch (error) {
+    console.error("Get my orders error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching user orders",
+      error: error.message,
+    });
+  }
+};
+
+
+exports.getMyOrderDetail = async (req, res) => {
+  try {
+    const user_id = req.user.userid;
+    const { order_id } = req.params;
+
+    const order = await Order.findOne({
+      _id: order_id,
+      user: user_id,
+    }).lean();
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    const productIds = order.products
+      .map(p => p.product)
+      .filter(Boolean);
+
+    const selectedVariants = {};
+    order.products.forEach(item => {
+      if (item.product && item.sku) {
+        selectedVariants[item.product.toString()] = item.sku;
+      }
+    });
+
+    const products = await Product.find({
+      _id: { $in: productIds },
+    }).lean();
+
+    const enrichedProducts = await enrichProductListWithVariants(
+      products,
+      { selectedVariants }
+    );
+
+    const payment = await Payment.findOne({
+      order: order._id,
+    }).lean();
+
+    const enrichedItems = order.products.map(item => {
+      const product = enrichedProducts.find(
+        p => String(p._id) === String(item.product)
+      );
+
+      return {
+        ...item,
+        product: product || null,
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      order: {
+        ...order,
+        products: enrichedItems,
+        payment,
+        createdAtIST: new Date(order.createdAt).toLocaleString(
+          "en-IN",
+          { timeZone: "Asia/Kolkata" }
+        ),
+      },
+    });
+  } catch (error) {
+    console.error("Get order detail error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching order detail",
       error: error.message,
     });
   }

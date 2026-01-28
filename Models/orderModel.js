@@ -139,7 +139,6 @@ const orderSchema = new mongoose.Schema(
         "OUT_FOR_DELIVERY",
         "DELIVERED",
         "RETURNED",
-        
       ],
       default: "PENDING",
       index: true,

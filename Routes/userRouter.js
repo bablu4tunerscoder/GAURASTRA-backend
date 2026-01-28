@@ -9,6 +9,8 @@ const router = express.Router();
 router.get("/all", authCheck, permissionCheck('user'), userController.getAllUsers);
 
 router.get("/user-profile", authCheck, userController.getProfile);
+router.post("/change-password", authCheck, userController.changePassword);
+
 router.put(
   "/user-update", authCheck,
   localUploader("Uploads/profile", "image").single("profileImage"),

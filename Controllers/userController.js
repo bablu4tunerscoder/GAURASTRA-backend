@@ -1,10 +1,11 @@
 
 
 const User = require("../Models/userModel");
-
+const bcrypt = require("bcryptjs");
 const { getGeolocation } = require("../utilities/geolocation");
 
 const { imageToWebp } = require("../Middlewares/upload/imageProcessor");
+const { pagination_ } = require("../utilities/pagination_");
 
 // admin routes 
 const getAllUsers = async (req, res) => {
@@ -214,10 +215,67 @@ const updateUserProfile = async (req, res) => {
 };
 
 
+const changePassword = async (req, res) => {
+  try {
+    const userId = req.user.userid;
+    const { oldPassword, newPassword } = req.body;
+
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({
+        status: "0",
+        message: "Old password and new password are required",
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        status: "0",
+        message: "User not found",
+      });
+    }
+
+    // 🚫 Google login users
+    if (user.password === "GoogleAuth") {
+      return res.status(400).json({
+        status: "0",
+        message: "Password change not allowed for Google login users",
+      });
+    }
+
+    // 🔍 Verify old password
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!isMatch) {
+      return res.status(401).json({
+        status: "0",
+        message: "Old password is incorrect",
+      });
+    }
+
+    // 🔐 Hash new password
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+
+    await user.save();
+
+    return res.status(200).json({
+      status: "1",
+      message: "Password changed successfully",
+    });
+  } catch (error) {
+    console.error("Change Password Error:", error);
+    return res.status(500).json({
+      status: "0",
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
+
 module.exports = {
   getAllUsers,
   getProfile,
   updateUserProfile,
   getUserById,
   adminUpdateUser,
+  changePassword
 };

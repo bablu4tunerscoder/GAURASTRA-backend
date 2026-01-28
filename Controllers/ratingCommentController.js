@@ -1,6 +1,7 @@
 const Rating = require('../Models/ratingAndComment');
+const { enrichProductListWithVariants } = require('../utilities/enrichProductListWithVariants');
 const { pagination_ } = require('../utilities/pagination_');
-
+const Product = require("../Models/ProductModel");
 
 const createRating = async (req, res) => {
 
@@ -22,7 +23,7 @@ const createRating = async (req, res) => {
     }
 
     try {
-        const newRating = await Rating.create({
+      const newRating = await Rating.create({
       user_id,
       product_id,
       order_id: order_id || null,
@@ -31,11 +32,11 @@ const createRating = async (req, res) => {
       is_published: false, 
     });
 
-        res.status(201).json({
-            success: true,
-            data: newRating,
-            message: 'Rating and comment added successfully.'
-        });
+    res.status(201).json({
+        success: true,
+        data: newRating,
+        message: 'Rating and comment added successfully.'
+    });
 
     } catch (error) {
     /* -------- Duplicate rating -------- */
@@ -249,9 +250,113 @@ const listAllRatingsForAdmin = async (req, res) => {
   }
 };
 
+const listUserRatedProducts = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const { page, limit, skip, hasPrevPage } = pagination_(req.query, {
+      defaultLimit: 10,
+      maxLimit: 20,
+    });
+
+    /* ---------------------------------
+       STEP 1️⃣ Fetch user ratings
+    --------------------------------- */
+    const [ratings, totalRecords] = await Promise.all([
+      Rating.find({ user_id: userId })
+        .sort({ created_at: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+
+      Rating.countDocuments({ user_id: userId }),
+    ]);
+
+    if (!ratings.length) {
+      return res.status(200).json({
+        success: true,
+        data: [],
+        pagination: {
+          page,
+          limit,
+          totalRecords: 0,
+          totalPages: 0,
+          hasPrevPage,
+          hasNextPage: false,
+        },
+      });
+    }
+
+    /* ---------------------------------
+       STEP 2️⃣ Extract productIds
+    --------------------------------- */
+    const productIds = ratings.map(r => r.product_id);
+
+    /* ---------------------------------
+       STEP 3️⃣ Fetch products
+    --------------------------------- */
+    const products = await Product.find({
+      _id: { $in: productIds },
+    }).lean();
+
+    /* ---------------------------------
+       STEP 4️⃣ Enrich products
+    --------------------------------- */
+    const enrichedProducts =
+      await enrichProductListWithVariants(products);
+
+    /* ---------------------------------
+       STEP 5️⃣ Map rating + product
+    --------------------------------- */
+    const finalData = ratings.map(rating => {
+      const product = enrichedProducts.find(
+        p => String(p._id) === String(rating.product_id)
+      );
+
+      return {
+        rating_id: rating._id,
+        rating_value: rating.rating_value,
+        comment_text: rating.comment_text,
+        is_published: rating.is_published,
+        order_id: rating.order_id,
+        created_at: rating.created_at,
+        product: product || null,
+      };
+    });
+
+    const totalPages = Math.ceil(totalRecords / limit);
+    const hasNextPage = page < totalPages;
+
+    res.status(200).json({
+      success: true,
+      count: finalData.length,
+
+      pagination: {
+        page,
+        limit,
+        totalRecords,
+        totalPages,
+        hasPrevPage,
+        hasNextPage,
+      },
+
+      data: finalData,
+    });
+  } catch (error) {
+    console.error("User rated products error:", error);
+    res.status(500).json({
+      success: false,
+      message:
+        "Server error occurred while fetching user rated products",
+    });
+  }
+};
+
+
 module.exports = {
     createRating,
     listRatingsByProduct,
     listAllRatingsForAdmin,
-    updatePublishStatus
+    updatePublishStatus,
+    listUserRatedProducts
 };

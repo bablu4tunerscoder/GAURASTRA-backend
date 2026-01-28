@@ -33,6 +33,7 @@ const contactRoutes = require('./Routes/contactusR');
 const homeRoutes = require('./Routes/homeRoutes');
 const userAddressRouter = require('./Routes/userAddressRouter');
 const checkoutRoutes = require('./Routes/checkoutRoutes');
+const notificationRoutes = require('./Routes/notificationRoutes');
 
 const RootRoutesOffline = require('./gaurastra-offline/routes/root');
 
@@ -138,8 +139,7 @@ app.use("/api/contact", contactRoutes);
 app.use("/api/newsletter", newsletterRoutes);
 app.use("/api/user-address", userAddressRouter);
 app.use("/api/checkout", checkoutRoutes);
-
-
+app.use("/api/notification", notificationRoutes);
 
 app.use("/api/offline", RootRoutesOffline);
 

@@ -677,7 +677,6 @@ module.exports = {
   googleAuth,
   resetPassword,
   forgotPasswordRequest,
-
   verifyUserEmail,
   resendUserOTP,
 

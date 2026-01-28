@@ -52,7 +52,6 @@ exports.initiatePayment = async ({
 
     console.log("PhonePe initiatePayment payload:", payload);
 
-
     const { base64, checksum } = generateChecksum(payload);
 
     const response = await axios.post(
