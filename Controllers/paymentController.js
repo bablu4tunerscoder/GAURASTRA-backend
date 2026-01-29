@@ -15,9 +15,6 @@ const {
 } = require("../constants/payment.constants");
 
 
-
-
-
 /* ======================================================
    INITIATE PAYMENT
 ====================================================== */
@@ -90,6 +87,24 @@ exports.initiatePayment = async (req, res) => {
     });
   } catch (error) {
     console.error("initiatePayment error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.getPaymentStatus = async (req, res) => {
+  const merchantTransactionId = req.query.id;
+  
+  try {
+    const payment = await Payment.findOne({
+      merchantTransactionId: req.params.merchantTransactionId,
+    }).populate({
+      path: "order",
+      populate: { path: "user", select: "name email phone" },
+    });
+
+    res.json({ success: true, payment });
+  } catch (error) {
+    console.error("getPaymentByMerchant error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

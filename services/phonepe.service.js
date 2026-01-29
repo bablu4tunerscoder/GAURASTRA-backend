@@ -1,70 +1,73 @@
 const axios = require("axios");
 const crypto = require("crypto");
 
-const {
-  PHONEPE_BASE_URL,
-  PHONEPE_MERCHANT_ID,
-  PHONEPE_SALT_KEY,
-  PHONEPE_SALT_INDEX,
-  FRONTEND_URL,
-  BACKEND_URL,
-} = process.env;
+const FRONTEND_URL = 'http://localhost:3000';
+const BACKEND_URL = 'http://localhost:9091';
 
-/* ======================================================
-   SIGN PAYLOAD (PAY API)
-====================================================== */
-function generateChecksum(payload) {
-  const base64 = Buffer.from(JSON.stringify(payload)).toString("base64");
-  const string = `${base64}/pg/v1/pay${PHONEPE_SALT_KEY}`;
+const PHONEPE_BASE_URL = 'https://api-preprod.phonepe.com/apis/pg-sandbox/v1';
 
-  const checksum = crypto
+const MERCHANT_ID = "M22SD4GSX2BNG_2601291600";
+const MERCHANT_KEY = 'MzAwMDY0MmQtYjQxYS00NTI0LWFhY2UtM2EyZjY4MWQ0OWFj';
+const SALT_INDEX = 1;
+
+const redirectUrl = `${BACKEND_URL}/api/payments/status`;
+
+const successUrl= `${FRONTEND_URL}/payment-success`
+const failureUrl=`${FRONTEND_URL}/payment-failure`
+
+
+function generateChecksum(payloadBody) {
+
+  const payload = Buffer.from(JSON.stringify(payloadBody)).toString("base64");
+
+  const stringToHash = `${payload}/pg/v1/pay${MERCHANT_KEY}`;
+
+  const hash = crypto
     .createHash("sha256")
-    .update(string)
+    .update(stringToHash)
     .digest("hex");
 
   return {
-    base64,
-    checksum: `${checksum}###${PHONEPE_SALT_INDEX}`,
+    payload,
+    checksum: `${hash}###${SALT_INDEX}`,
   };
 }
 
-/* ======================================================
-   INITIATE PAYMENT
-====================================================== */
 exports.initiatePayment = async ({
   merchantTransactionId,
   amount,
   userId,
 }) => {
   try {
-    const payload = {
-      merchantId: PHONEPE_MERCHANT_ID,
+    const payment_payload = {
+      merchantId: MERCHANT_ID,
       merchantTransactionId,
       merchantUserId: userId,
-      amount: amount * 100, // paise
-      redirectUrl: `${FRONTEND_URL}/payment-status`,
+      amount: Number(amount) * 100,
+      redirectUrl: `${redirectUrl}?id=${merchantTransactionId}`,
       redirectMode: "POST",
-      callbackUrl: `${BACKEND_URL}/api/payment/phonepe/callback`,
       paymentInstrument: {
         type: "PAY_PAGE",
       },
     };
 
-    console.log("PhonePe initiatePayment payload:", payload);
-
-    const { base64, checksum } = generateChecksum(payload);
+    const { payload, checksum } = generateChecksum(payment_payload);
 
     const response = await axios.post(
-      `${PHONEPE_BASE_URL}/pg/v1/pay`,
-      { request: base64 },
+      `${PHONEPE_BASE_URL}/pay`,
+      { request: payload },
       {
         headers: {
           "Content-Type": "application/json",
+          accept: "application/json",
           "X-VERIFY": checksum,
+          "X-MERCHANT-ID": MERCHANT_ID, 
         },
         timeout: 10000,
       }
     );
+
+    console.log("response.data.data",response.data);
 
     return {
       redirectUrl:
@@ -79,7 +82,6 @@ exports.initiatePayment = async ({
     throw new Error("Unable to initiate PhonePe payment");
   }
 };
-
 /* ======================================================
    VERIFY PAYMENT (STATUS API)
 ====================================================== */
